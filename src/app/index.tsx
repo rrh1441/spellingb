@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Play, Share2, SkipBackIcon as Backspace } from 'lucide-react'
+import { Volume2, Play, Share2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from "@/components/ui/use-toast"
 import { v4 as uuidv4 } from 'uuid'
@@ -16,17 +16,13 @@ const dailyWord = {
   audioUrl: '/ephemeral.mp3', // Default audio
 }
 
-const keyboard = [
-  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-]
-
 export default function Home() {
   const [score, setScore] = useState(0)
   const [timeTaken, setTimeTaken] = useState(0)
   const [userInput, setUserInput] = useState('')
   const [currentWord, setCurrentWord] = useState(dailyWord)
-  const [sessionId, setSessionId] = useState(null)
-  const [timer, setTimer] = useState(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -39,27 +35,25 @@ export default function Home() {
     }
     setSessionId(id)
 
-    // Set a new word to be displayed
+    // Set the daily word (in a real app, you might fetch a new word here)
     setCurrentWord(dailyWord)
 
-    // Start the timer when the game starts
+    // Start the timer when the component mounts
     startTimer()
   }, [])
 
   const startTimer = () => {
     let time = 0
-    setTimer(setInterval(() => {
+    const interval = setInterval(() => {
       time += 1
       setTimeTaken(time)
-    }, 1000)) // Increment every second
-  }
-
-  const stopTimer = () => {
-    clearInterval(timer)
+    }, 1000)
+    setTimer(interval)
   }
 
   const submitScore = async () => {
-    const { data, error } = await supabase
+    // Insert the score into Supabase
+    const { error } = await supabase
       .from('game_scores')
       .insert([
         { session_id: sessionId, score, time_taken: timeTaken, timestamp: new Date() },
@@ -98,10 +92,10 @@ export default function Home() {
       toast({ description: 'Incorrect. Try again!' })
     }
 
-    // Reset input and pick a new word
+    // Reset input and pick a new word (currently resetting to the same daily word)
     setUserInput('')
-    setCurrentWord(dailyWord)  // You can replace this with logic for a new word
-    inputRef.current?.focus()   // Refocus the input field
+    setCurrentWord(dailyWord)
+    inputRef.current?.focus()
   }
 
   return (
@@ -152,4 +146,3 @@ export default function Home() {
     </div>
   )
 }
-
