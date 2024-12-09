@@ -128,19 +128,19 @@ export default function Home() {
               ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
               ['z', 'x', 'c', 'v', 'b', 'n', 'm']
             ].map((row, i) => (
-              <div key={i} className="flex justify-center space-x-[2px]">
+              <div key={i} className="flex justify-center space-x-px">
                 {row.map(key => (
                   <Button
                     key={key}
                     onClick={() => handleKeyPress(key)}
-                    className="w-9 h-9 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    className="w-8 h-8 text-base bg-gray-200 text-gray-700 hover:bg-gray-300"
                   >
                     {key}
                   </Button>
                 ))}
               </div>
             ))}
-            <div className="flex justify-center space-x-[2px]">
+            <div className="flex justify-center space-x-px">
               <Button
                 onClick={() => handleKeyPress('backspace')}
                 className="px-3 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"

@@ -219,7 +219,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won't save you!
+                Autocorrect won&apos;t save you!
               </p>
               <Button 
                 onClick={startGame} 
@@ -289,7 +289,7 @@ export default function SpellingGame() {
                   ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
                   ['z', 'x', 'c', 'v', 'b', 'n', 'm']
                 ].map((row, i) => (
-                  <div key={i} className="flex justify-center space-x-[2px]">
+                  <div key={i} className="flex justify-center space-x-px">
                     {row.map(key => (
                       <Button
                         key={key}
@@ -301,7 +301,7 @@ export default function SpellingGame() {
                     ))}
                   </div>
                 ))}
-                <div className="flex justify-center space-x-[2px]">
+                <div className="flex justify-center space-x-px">
                   <Button
                     onClick={() => handleKeyPress('backspace')}
                     className="px-3 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
