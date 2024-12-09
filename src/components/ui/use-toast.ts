@@ -1,21 +1,15 @@
 import * as React from "react"
-import { type ToastProps } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-type ToasterToast = ToastProps & {
+// Define a custom toast type without relying on ToastProps
+type ToasterToast = {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
-  // Removed action?: ToastActionElement since it's not available
-}
-
-let count = 0
-
-function genId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 type Action =
@@ -25,7 +19,7 @@ type Action =
     }
   | {
       type: "UPDATE_TOAST"
-      toast: Partial<ToasterToast>
+      toast: Partial<ToasterToast> & { id: string }
     }
   | {
       type: "DISMISS_TOAST"
@@ -122,6 +116,11 @@ function dispatch(action: Action) {
   })
 }
 
+function genId() {
+  // Simple ID generator
+  return Math.random().toString(36).substring(2, 10)
+}
+
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
@@ -132,6 +131,7 @@ function toast({ ...props }: Toast) {
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
+
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
