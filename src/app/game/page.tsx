@@ -296,14 +296,14 @@ export default function SpellingGame() {
                     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
                     ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'del']
                   ].map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex justify-center space-x-1">
+                    <div key={rowIndex} className="flex justify-center space-x-0.5">
                       {row.map(key => {
                         if (key === 'del') {
                           return (
                             <Button
                               key={key}
                               onClick={() => handleKeyPress('backspace')}
-                              className="w-16 h-11 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
+                              className="w-12 h-11 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
                               aria-label="Delete"
                             >
                               DEL
@@ -314,7 +314,7 @@ export default function SpellingGame() {
                           <Button
                             key={key}
                             onClick={() => handleKeyPress(key)}
-                            className="w-9 h-11 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
+                            className="w-8 h-11 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
                             aria-label={key.toUpperCase()}
                           >
                             {key.toUpperCase()}
@@ -324,10 +324,10 @@ export default function SpellingGame() {
                     </div>
                   ))}
                   {/* Submit Button on Mobile */}
-                  <div className="flex justify-center space-x-1">
+                  <div className="flex justify-center space-x-0.5">
                     <Button
                       onClick={handleSubmit}
-                      className="w-24 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xl font-semibold" /* Increased width and text */
+                      className="w-24 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xl font-semibold"
                       aria-label="Enter"
                     >
                       Enter
