@@ -209,11 +209,97 @@ export default function SpellingGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-2">
-      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2">
+      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl">
         <CardContent className="p-4">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">Spelling B-</h1>
           
+          {/* ... other states and content ... */}
+          
+          {gameState === 'playing' && currentWord && (
+            <div className="space-y-4">
+              {/* Definition and audio button */}
+              <div className="flex justify-center">
+                <Button 
+                  onClick={playAudio} 
+                  variant="outline" 
+                  className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm"
+                >
+                  <Volume2 className="mr-2 h-5 w-5" /> Play Pronunciation
+                </Button>
+              </div>
+              <audio ref={audioRef} />
+
+              {/* Timer bar */}
+              <div className="relative pt-1">
+                <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+                  <div 
+                    style={{ width: `${(timeLeft / 30) * 100}%` }}
+                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out"
+                  ></div>
+                </div>
+                <p className="text-center text-sm font-medium text-gray-600 mt-2">{timeLeft} seconds left</p>
+              </div>
+
+              {/* User input display */}
+              <div className="bg-gray-100 p-4 rounded-lg border border-gray-200 shadow-inner">
+                <p className="text-2xl text-center font-bold text-gray-800 min-h-[40px]">
+                  {userInput || 'Type your answer'}
+                </p>
+              </div>
+
+              {/* The improved iOS-like keyboard */}
+              <div className="md:hidden">
+                {/* Improved iOS-like Keyboard */}
+                <div className="space-y-2">
+                  {[
+                    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+                    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+                    ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+                  ].map((row, rowIndex) => (
+                    <div key={rowIndex} className="flex justify-center space-x-1">
+                      {row.map(key => (
+                        <Button
+                          key={key}
+                          onClick={() => handleKeyPress(key)}
+                          className="w-10 h-10 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
+                        >
+                          {key.toUpperCase()}
+                        </Button>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="flex justify-center space-x-1">
+                    <Button
+                      onClick={() => handleKeyPress('backspace')}
+                      className="w-10 h-10 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
+                    >
+                      <Backspace className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      onClick={handleSubmit}
+                      className="w-10 h-10 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center"
+                    >
+                      Enter
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop submit button */}
+              <div className="hidden md:block">
+                <Button
+                  onClick={handleSubmit}
+                  className="w-full px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold"
+                >
+                  Submit
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ... Results screen and other states ... */}
+
           {gameState === 'ready' && (
             <div className="space-y-4">
               <p className="text-center text-gray-600">
@@ -228,103 +314,6 @@ export default function SpellingGame() {
               >
                 <Play className="mr-2 h-5 w-5" /> Start Game
               </Button>
-            </div>
-          )}
-
-          {gameState === 'playing' && currentWord && (
-            <div className="space-y-4">
-              <div className="min-h-[3rem]">
-                <p className="text-center font-medium text-gray-700">
-                  {currentWord.definition}
-                </p>
-              </div>
-              
-              <div className="flex justify-center">
-                <Button 
-                  onClick={playAudio} 
-                  variant="outline" 
-                  className="bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-                >
-                  <Volume2 className="mr-2 h-5 w-5" /> Play Pronunciation
-                </Button>
-              </div>
-              <audio ref={audioRef} />
-
-              <div className="relative pt-1">
-                <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
-                  <div 
-                    style={{ width: `${(timeLeft / 30) * 100}%` }}
-                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out"
-                  ></div>
-                </div>
-                <p className="text-center text-sm font-medium text-gray-600 mt-2">{timeLeft} seconds left</p>
-              </div>
-
-              <div className="bg-gray-100 p-4 rounded-lg">
-                <p className="text-2xl text-center font-bold text-gray-800 min-h-[40px]">
-                  {userInput || 'Type your answer'}
-                </p>
-              </div>
-              
-              <input
-                ref={inputRef}
-                type="text"
-                className="sr-only"
-                value={userInput}
-                readOnly
-                onFocus={(e) => e.target.blur()}
-                onChange={(e) => setUserInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleSubmit()
-                  }
-                }}
-              />
-
-              {/* Mobile On-Screen Keyboard */}
-              <div className="space-y-2 md:hidden">
-                {[
-                  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-                  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-                  ['z', 'x', 'c', 'v', 'b', 'n', 'm']
-                ].map((row, i) => (
-                  <div key={i} className="flex justify-center space-x-px">
-                    {row.map(key => (
-                      <Button
-                        key={key}
-                        onClick={() => handleKeyPress(key)}
-                        className="w-9 h-9 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      >
-                        {key}
-                      </Button>
-                    ))}
-                  </div>
-                ))}
-                <div className="flex justify-center space-x-px">
-                  <Button
-                    onClick={() => handleKeyPress('backspace')}
-                    className="px-3 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    <Backspace className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    className="px-3 py-2 bg-blue-500 text-white hover:bg-blue-600"
-                  >
-                    Submit
-                  </Button>
-                </div>
-              </div>
-
-              <div className="hidden md:block">
-                <Button
-                  onClick={handleSubmit}
-                  className="w-full px-4 py-2 bg-blue-500 text-white hover:bg-blue-600"
-                >
-                  Submit
-                </Button>
-              </div>
             </div>
           )}
 
