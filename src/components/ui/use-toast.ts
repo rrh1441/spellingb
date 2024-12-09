@@ -3,7 +3,7 @@ import * as React from "react"
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-// Include a variant?: string field to match usage in page.tsx
+// Add `action?: React.ReactNode` to ToasterToast
 type ToasterToast = {
   id: string
   title?: React.ReactNode
@@ -11,6 +11,7 @@ type ToasterToast = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   variant?: string
+  action?: React.ReactNode // New field
 }
 
 type Action =
