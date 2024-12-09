@@ -294,31 +294,38 @@ export default function SpellingGame() {
                   {[
                     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
                     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-                    ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+                    ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'backspace']
                   ].map((row, rowIndex) => (
                     <div key={rowIndex} className="flex justify-center space-x-1">
-                      {row.map(key => (
-                        <Button
-                          key={key}
-                          onClick={() => handleKeyPress(key)}
-                          className="w-8 h-8 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
-                        >
-                          {key.toUpperCase()}
-                        </Button>
-                      ))}
+                      {row.map(key => {
+                        if (key === 'backspace') {
+                          return (
+                            <Button
+                              key={key}
+                              onClick={() => handleKeyPress('backspace')}
+                              className="w-9 h-11 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
+                            >
+                              <Backspace className="h-5 w-5" />
+                            </Button>
+                          )
+                        }
+                        return (
+                          <Button
+                            key={key}
+                            onClick={() => handleKeyPress(key)}
+                            className="w-9 h-11 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
+                          >
+                            {key.toUpperCase()}
+                          </Button>
+                        )
+                      })}
                     </div>
                   ))}
-                  {/* Backspace and Submit Buttons */}
+                  {/* Submit Button on Mobile */}
                   <div className="flex justify-center space-x-1">
                     <Button
-                      onClick={() => handleKeyPress('backspace')}
-                      className="w-8 h-8 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
-                    >
-                      <Backspace className="h-4 w-4" />
-                    </Button>
-                    <Button
                       onClick={handleSubmit}
-                      className="w-8 h-8 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xs"
+                      className="w-9 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-sm"
                     >
                       Enter
                     </Button>
