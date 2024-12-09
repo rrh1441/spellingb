@@ -3,13 +3,14 @@ import * as React from "react"
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-// Define a custom toast type without relying on ToastProps
+// Include a variant?: string field to match usage in page.tsx
 type ToasterToast = {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  variant?: string
 }
 
 type Action =
@@ -117,7 +118,6 @@ function dispatch(action: Action) {
 }
 
 function genId() {
-  // Simple ID generator
   return Math.random().toString(36).substring(2, 10)
 }
 
