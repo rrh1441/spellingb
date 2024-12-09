@@ -305,7 +305,7 @@ export default function SpellingGame() {
                               onClick={() => handleKeyPress('backspace')}
                               className="w-[2.125rem] h-11 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
                             >
-                              <Backspace className="h-6 w-6" /> {/* Enlarged Icon */}
+                              <Backspace className="h-7 w-7" /> {/* Enlarged Icon */}
                             </Button>
                           )
                         }
@@ -325,7 +325,7 @@ export default function SpellingGame() {
                   <div className="flex justify-center space-x-1">
                     <Button
                       onClick={handleSubmit}
-                      className="w-16 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-base font-semibold" /* Increased width and text */
+                      className="w-20 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-lg font-semibold" /* Increased width and text */
                     >
                       Enter
                     </Button>
