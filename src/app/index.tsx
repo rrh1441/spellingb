@@ -18,11 +18,9 @@ const dailyWord = {
 
 export default function Home() {
   const [score, setScore] = useState(0)
-  const [timeTaken, setTimeTaken] = useState(0)
   const [userInput, setUserInput] = useState('')
   const [currentWord, setCurrentWord] = useState(dailyWord)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -37,27 +35,12 @@ export default function Home() {
 
     // Set the daily word (in a real app, you might fetch a new word here)
     setCurrentWord(dailyWord)
-
-    // Start the timer when the component mounts
-    startTimer()
   }, [])
 
-  const startTimer = () => {
-    let time = 0
-    const interval = setInterval(() => {
-      time += 1
-      setTimeTaken(time)
-    }, 1000)
-    setTimer(interval)
-  }
-
   const submitScore = async () => {
-    // Insert the score into Supabase
     const { error } = await supabase
       .from('game_scores')
-      .insert([
-        { session_id: sessionId, score, time_taken: timeTaken, timestamp: new Date() },
-      ])
+      .insert([{ session_id: sessionId, score, timestamp: new Date() }])
 
     if (error) {
       console.error('Error submitting score:', error)
@@ -67,10 +50,7 @@ export default function Home() {
   }
 
   const playAudio = async (audioUrl: string) => {
-    const { data, error } = await supabase
-      .storage
-      .from('audio')
-      .download(audioUrl)
+    const { data, error } = await supabase.storage.from('audio').download(audioUrl)
 
     if (error) {
       console.error('Error fetching audio:', error)
@@ -128,7 +108,6 @@ export default function Home() {
 
       <div className="flex space-x-4 mb-4">
         <div>Score: {score}</div>
-        <div>Time: {timeTaken}s</div>
       </div>
 
       <AnimatePresence>
