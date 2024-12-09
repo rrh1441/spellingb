@@ -297,7 +297,7 @@ export default function SpellingGame() {
                       <Button
                         key={key}
                         onClick={() => handleKeyPress(key)}
-                        className="w-8 h-8 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        className="w-10 h-10 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
                       >
                         {key}
                       </Button>

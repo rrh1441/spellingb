@@ -9,7 +9,6 @@ import { toast } from "@/components/ui/use-toast"
 import { v4 as uuidv4 } from 'uuid'
 import supabase from '../lib/supabase'
 
-// Initialize the daily word structure
 const dailyWord = {
   word: 'ephemeral',
   definition: 'Lasting for a very short time.',
@@ -25,7 +24,6 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Generate a session ID and set it in localStorage
     let id = localStorage.getItem('session_id')
     if (!id) {
       id = uuidv4()
@@ -33,7 +31,6 @@ export default function Home() {
     }
     setSessionId(id)
 
-    // Set the daily word (in a real app, you might fetch a new one)
     setCurrentWord(dailyWord)
   }, [])
 
@@ -70,12 +67,11 @@ export default function Home() {
 
     if (userInput.toLowerCase() === currentWord.word.toLowerCase()) {
       setScore(score + 1)
-      toast({ description: 'Correct!' })
+      toast({ description: 'Correct! Well done!' })
     } else {
       toast({ description: 'Incorrect. Try again!' })
     }
 
-    // Reset input and pick a new word (currently resetting to the same daily word)
     setUserInput('')
     setCurrentWord(dailyWord)
     inputRef.current?.focus()
@@ -119,7 +115,6 @@ export default function Home() {
         </Button>
       </form>
 
-      {/* Display score only, no timer here */}
       <div className="flex space-x-4 mb-4">
         <div>Score: {score}</div>
       </div>
@@ -136,7 +131,7 @@ export default function Home() {
               <Button
                 key={key}
                 onClick={() => handleKeyPress(key)}
-                className="w-8 h-8 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                className="w-10 h-10 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
               >
                 {key}
               </Button>
