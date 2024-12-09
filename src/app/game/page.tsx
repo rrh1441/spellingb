@@ -290,13 +290,13 @@ export default function SpellingGame() {
 
               {/* Improved iOS-like Keyboard */}
               <div className="md:hidden">
-                <div className="space-y-2">
+                <div className="space-y-4"> {/* Increased vertical spacing between rows */}
                   {[
                     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
                     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
                     ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'del']
                   ].map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex justify-center space-x-0.5">
+                    <div key={rowIndex} className="flex justify-center space-x-1"> {/* Increased horizontal spacing */}
                       {row.map(key => {
                         if (key === 'del') {
                           return (
@@ -324,7 +324,7 @@ export default function SpellingGame() {
                     </div>
                   ))}
                   {/* Submit Button on Mobile */}
-                  <div className="flex justify-center space-x-0.5">
+                  <div className="flex justify-center space-x-1"> {/* Increased horizontal spacing */}
                     <Button
                       onClick={handleSubmit}
                       className="w-24 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xl font-semibold"
