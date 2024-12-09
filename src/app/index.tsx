@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Play, Share2 } from 'lucide-react'
+import { Volume2, Play, Share2, SkipBackIcon as Backspace } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from "@/components/ui/use-toast"
 import { v4 as uuidv4 } from 'uuid'
@@ -33,7 +33,7 @@ export default function Home() {
     }
     setSessionId(id)
 
-    // Set the daily word (in a real app, you might fetch a new word here)
+    // Set the daily word (in a real app, you might fetch a new one)
     setCurrentWord(dailyWord)
   }, [])
 
@@ -50,7 +50,10 @@ export default function Home() {
   }
 
   const playAudio = async (audioUrl: string) => {
-    const { data, error } = await supabase.storage.from('audio').download(audioUrl)
+    const { data, error } = await supabase
+      .storage
+      .from('audio')
+      .download(audioUrl)
 
     if (error) {
       console.error('Error fetching audio:', error)
@@ -62,8 +65,8 @@ export default function Home() {
     audio.play()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
 
     if (userInput.toLowerCase() === currentWord.word.toLowerCase()) {
       setScore(score + 1)
@@ -78,6 +81,14 @@ export default function Home() {
     inputRef.current?.focus()
   }
 
+  const handleKeyPress = (key: string) => {
+    if (key === 'backspace') {
+      setUserInput(prev => prev.slice(0, -1))
+    } else {
+      setUserInput(prev => prev + key)
+    }
+  }
+
   return (
     <div className="flex flex-col items-center justify-center p-4">
       <h1 className="text-3xl font-bold mb-4">Spelling B- Game</h1>
@@ -87,7 +98,7 @@ export default function Home() {
           <div className="text-lg font-semibold">{currentWord.word}</div>
           <div className="text-sm mb-4">{currentWord.definition}</div>
           <Button variant="outline" onClick={() => playAudio(currentWord.audioUrl)}>
-            <Volume2 className="mr-2" /> Play Audio
+            <Volume2 className="mr-2 h-5 w-5" /> Play Audio
           </Button>
         </CardContent>
       </Card>
@@ -97,6 +108,8 @@ export default function Home() {
           ref={inputRef}
           type="text"
           value={userInput}
+          readOnly
+          onFocus={(e) => e.target.blur()}
           onChange={(e) => setUserInput(e.target.value)}
           className="p-2 border border-gray-300 rounded-md"
           placeholder="Spell the word"
@@ -106,8 +119,44 @@ export default function Home() {
         </Button>
       </form>
 
+      {/* Display score only, no timer here */}
       <div className="flex space-x-4 mb-4">
         <div>Score: {score}</div>
+      </div>
+
+      {/* On-screen keyboard for mobile */}
+      <div className="space-y-2 md:hidden">
+        {[
+          ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+          ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+          ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+        ].map((row, i) => (
+          <div key={i} className="flex justify-center space-x-1">
+            {row.map(key => (
+              <Button
+                key={key}
+                onClick={() => handleKeyPress(key)}
+                className="w-8 h-8 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+              >
+                {key}
+              </Button>
+            ))}
+          </div>
+        ))}
+        <div className="flex justify-center space-x-2">
+          <Button
+            onClick={() => handleKeyPress('backspace')}
+            className="px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+          >
+            <Backspace className="h-5 w-5" />
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            className="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600"
+          >
+            Submit
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>

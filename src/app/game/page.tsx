@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Play, Share2 } from 'lucide-react'
+import { Volume2, Play, Share2, SkipBackIcon as Backspace } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 
@@ -42,7 +42,10 @@ export default function SpellingGame() {
       }
 
       if (data) {
-        const validWords = data.filter(word => word.word && word.definition && word.audio_url)
+        const validWords = data.filter(word => {
+          return word.word && word.definition && word.audio_url
+        })
+
         const shuffled = shuffleArray([...validWords])
         setWordsList(shuffled)
         setRemainingWords(shuffled)
@@ -63,26 +66,22 @@ export default function SpellingGame() {
     return () => clearTimeout(timer)
   }, [timeLeft, gameState])
 
-  // When currentWord changes, load and prepare to play the audio immediately
   useEffect(() => {
-    const handleCanPlayThrough = () => {
-      audioRef.current?.play().catch(err => console.error('Autoplay failed:', err))
-    }
-
-    const audioElement = audioRef.current
-    if (audioElement && currentWord?.audio_url) {
-      audioElement.src = currentWord.audio_url
-      audioElement.load()
-      // Add listener for canplaythrough
-      audioElement.addEventListener('canplaythrough', handleCanPlayThrough)
-    }
-
-    return () => {
-      if (audioElement) {
-        audioElement.removeEventListener('canplaythrough', handleCanPlayThrough)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState === 'playing') {
+        if (e.key === 'Backspace') {
+          setUserInput(prev => prev.slice(0, -1))
+        } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
+          setUserInput(prev => prev + e.key)
+        } else if (e.key === 'Enter') {
+          handleSubmit()
+        }
       }
     }
-  }, [currentWord])
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [gameState])
 
   const shuffleArray = <T,>(array: T[]): T[] => {
     let currentIndex = array.length
@@ -107,17 +106,44 @@ export default function SpellingGame() {
     setTimeLeft(30)
     setUserInput('')
     
-    const word = remainingWords[0] || wordsList[0]
+    const word = remainingWords[0]
     if (word) {
       setCurrentWord(word)
       setRemainingWords(prev => prev.slice(1))
+      
       if (inputRef.current) inputRef.current.focus()
+      
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.src = word.audio_url
+          audioRef.current.load()
+          audioRef.current.play().catch(error => {
+            console.error('Failed to play audio:', error)
+          })
+        }
+      }, 500)
+    } else {
+      const shuffled = shuffleArray([...wordsList])
+      setRemainingWords(shuffled.slice(1))
+      setCurrentWord(shuffled[0])
+      
+      setTimeout(() => {
+        if (audioRef.current && shuffled[0]) {
+          audioRef.current.src = shuffled[0].audio_url
+          audioRef.current.load()
+          audioRef.current.play().catch(error => {
+            console.error('Failed to play audio:', error)
+          })
+        }
+      }, 500)
     }
   }
 
   const playAudio = () => {
     if (!currentWord?.audio_url || !audioRef.current) return
 
+    audioRef.current.src = currentWord.audio_url
+    audioRef.current.load()
     audioRef.current.play().catch(error => {
       console.error('Error playing audio:', error)
       toast({ 
@@ -127,18 +153,18 @@ export default function SpellingGame() {
     })
   }
 
-  const sanitize = (str: string) => {
-    return str
-      .toLowerCase()
-      .replace(/[^a-z]/g, '')
+  const handleKeyPress = (key: string) => {
+    if (key === 'backspace') {
+      setUserInput(prev => prev.slice(0, -1))
+    } else {
+      setUserInput(prev => prev + key)
+    }
   }
 
   const handleSubmit = () => {
     if (!currentWord) return
 
-    const cleanInput = sanitize(userInput)
-    const cleanCorrect = sanitize(currentWord.word)
-    const isCorrect = cleanInput === cleanCorrect
+    const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
 
     if (isCorrect) {
       setGameState('won')
@@ -225,7 +251,7 @@ export default function SpellingGame() {
                   <Volume2 className="mr-2 h-5 w-5" /> Play Pronunciation
                 </Button>
               </div>
-              <audio ref={audioRef} preload="auto" />
+              <audio ref={audioRef} />
 
               <div className="relative pt-1">
                 <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
@@ -239,15 +265,17 @@ export default function SpellingGame() {
 
               <div className="bg-gray-100 p-4 rounded-lg">
                 <p className="text-2xl text-center font-bold text-gray-800 min-h-[40px]">
-                  {userInput || 'Type your answer below'}
+                  {userInput || 'Type your answer'}
                 </p>
               </div>
               
               <input
                 ref={inputRef}
                 type="text"
-                className="block w-full border border-gray-300 rounded p-2"
+                className="sr-only"
                 value={userInput}
+                readOnly
+                onFocus={(e) => e.target.blur()}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -256,6 +284,41 @@ export default function SpellingGame() {
                   }
                 }}
               />
+
+              {/* Mobile On-Screen Keyboard */}
+              <div className="space-y-2 md:hidden">
+                {[
+                  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+                  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+                  ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+                ].map((row, i) => (
+                  <div key={i} className="flex justify-center space-x-1">
+                    {row.map(key => (
+                      <Button
+                        key={key}
+                        onClick={() => handleKeyPress(key)}
+                        className="w-8 h-8 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      >
+                        {key}
+                      </Button>
+                    ))}
+                  </div>
+                ))}
+                <div className="flex justify-center space-x-2">
+                  <Button
+                    onClick={() => handleKeyPress('backspace')}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    <Backspace className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    className="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600"
+                  >
+                    Submit
+                  </Button>
+                </div>
+              </div>
 
               <div className="hidden md:block">
                 <Button
@@ -278,15 +341,9 @@ export default function SpellingGame() {
                 <div className="space-y-3">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Your spelling:</p>
-                    {gameState === 'won' ? (
-                      <div className="border border-green-200 p-2 rounded bg-green-50">
-                        <code className="text-lg font-mono text-green-500">{userInput}</code>
-                      </div>
-                    ) : (
-                      <div className="border border-red-200 p-2 rounded bg-red-50">
-                        <code className="text-lg font-mono text-red-500">{userInput}</code>
-                      </div>
-                    )}
+                    <div className={`border p-2 rounded ${gameState === 'won' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                      <code className={`text-lg font-mono ${gameState === 'won' ? 'text-green-500' : 'text-red-500'}`}>{userInput}</code>
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Correct spelling:</p>
