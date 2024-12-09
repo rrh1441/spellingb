@@ -12,7 +12,7 @@ import supabase from '../lib/supabase'
 const dailyWord = {
   word: 'ephemeral',
   definition: 'Lasting for a very short time.',
-  audioUrl: '/ephemeral.mp3', // Default audio
+  audioUrl: '/ephemeral.mp3',
 }
 
 export default function Home() {
@@ -86,86 +86,90 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-4">Spelling B- Game</h1>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-2">
+      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white">
+        <CardContent className="p-4">
+          <h1 className="text-3xl font-bold mb-4 text-center">Spelling B- Game</h1>
 
-      <Card className="mb-4">
-        <CardContent>
-          <div className="text-lg font-semibold">{currentWord.word}</div>
-          <div className="text-sm mb-4">{currentWord.definition}</div>
-          <Button variant="outline" onClick={() => playAudio(currentWord.audioUrl)}>
-            <Volume2 className="mr-2 h-5 w-5" /> Play Audio
-          </Button>
+          <Card className="mb-4">
+            <CardContent>
+              <div className="text-lg font-semibold">{currentWord.word}</div>
+              <div className="text-sm mb-4">{currentWord.definition}</div>
+              <Button variant="outline" onClick={() => playAudio(currentWord.audioUrl)}>
+                <Volume2 className="mr-2 h-5 w-5" /> Play Audio
+              </Button>
+            </CardContent>
+          </Card>
+
+          <form onSubmit={handleSubmit} className="flex items-center space-x-2 mb-4">
+            <input
+              ref={inputRef}
+              type="text"
+              value={userInput}
+              readOnly
+              onFocus={(e) => e.target.blur()}
+              onChange={(e) => setUserInput(e.target.value)}
+              className="p-2 border border-gray-300 rounded-md"
+              placeholder="Spell the word"
+            />
+            <Button type="submit">
+              <Play className="mr-2" /> Submit
+            </Button>
+          </form>
+
+          <div className="flex space-x-4 mb-4">
+            <div>Score: {score}</div>
+          </div>
+
+          {/* On-screen keyboard for mobile */}
+          <div className="space-y-2 md:hidden">
+            {[
+              ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+              ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+              ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+            ].map((row, i) => (
+              <div key={i} className="flex justify-center space-x-1">
+                {row.map(key => (
+                  <Button
+                    key={key}
+                    onClick={() => handleKeyPress(key)}
+                    className="w-10 h-10 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    {key}
+                  </Button>
+                ))}
+              </div>
+            ))}
+            <div className="flex justify-center space-x-2">
+              <Button
+                onClick={() => handleKeyPress('backspace')}
+                className="px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+              >
+                <Backspace className="h-5 w-5" />
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                className="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600"
+              >
+                Submit
+              </Button>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            <motion.div
+              className="fixed bottom-4 right-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Button onClick={submitScore} className="flex items-center space-x-2">
+                <Share2 /> Submit Score
+              </Button>
+            </motion.div>
+          </AnimatePresence>
         </CardContent>
       </Card>
-
-      <form onSubmit={handleSubmit} className="flex items-center space-x-2 mb-4">
-        <input
-          ref={inputRef}
-          type="text"
-          value={userInput}
-          readOnly
-          onFocus={(e) => e.target.blur()}
-          onChange={(e) => setUserInput(e.target.value)}
-          className="p-2 border border-gray-300 rounded-md"
-          placeholder="Spell the word"
-        />
-        <Button type="submit">
-          <Play className="mr-2" /> Submit
-        </Button>
-      </form>
-
-      <div className="flex space-x-4 mb-4">
-        <div>Score: {score}</div>
-      </div>
-
-      {/* On-screen keyboard for mobile */}
-      <div className="space-y-2 md:hidden">
-        {[
-          ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-          ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-          ['z', 'x', 'c', 'v', 'b', 'n', 'm']
-        ].map((row, i) => (
-          <div key={i} className="flex justify-center space-x-1">
-            {row.map(key => (
-              <Button
-                key={key}
-                onClick={() => handleKeyPress(key)}
-                className="w-10 h-10 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-              >
-                {key}
-              </Button>
-            ))}
-          </div>
-        ))}
-        <div className="flex justify-center space-x-2">
-          <Button
-            onClick={() => handleKeyPress('backspace')}
-            className="px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
-          >
-            <Backspace className="h-5 w-5" />
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-500 text-white hover:bg-blue-600"
-          >
-            Submit
-          </Button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        <motion.div
-          className="fixed bottom-4 right-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <Button onClick={submitScore} className="flex items-center space-x-2">
-            <Share2 /> Submit Score
-          </Button>
-        </motion.div>
-      </AnimatePresence>
     </div>
   )
 }

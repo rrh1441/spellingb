@@ -212,9 +212,9 @@ export default function SpellingGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md mx-auto overflow-hidden shadow-lg bg-white">
-        <CardContent className="p-6">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-2">
+      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white">
+        <CardContent className="p-4">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">Spelling B-</h1>
           
           {gameState === 'ready' && (
