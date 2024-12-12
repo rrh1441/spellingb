@@ -7,6 +7,27 @@ import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 
+// Helper function to seed a random number generator
+const seedRandom = (seed: number): () => number => {
+  let value = seed
+  return () => {
+    // LCG parameters
+    value = (value * 9301 + 49297) % 233280
+    return value / 233280
+  }
+}
+
+// Deterministic Fisher-Yates Shuffle
+const deterministicShuffle = (array: Word[], seed: number): Word[] => {
+  const shuffled = [...array]
+  const rand = seedRandom(seed)
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 interface Word {
   id: number
   word: string
@@ -39,27 +60,6 @@ export default function SpellingGame() {
     return today.toISOString().split('T')[0] // Ensures UTC date consistency
   }
 
-  // Seedable RNG using Linear Congruential Generator (LCG)
-  const seedRandom = (seed: number): () => number => {
-    let value = seed
-    return () => {
-      // LCG parameters
-      value = (value * 9301 + 49297) % 233280
-      return value / 233280
-    }
-  }
-
-  // Deterministic Fisher-Yates Shuffle
-  const deterministicShuffle = (array: Word[], seed: number): Word[] => {
-    const shuffled = [...array]
-    const rand = seedRandom(seed)
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
-  }
-
   // Function to select three words based on the current date
   const getTodayWords = useCallback((wordList: Word[]): Word[] => {
     const referenceDate = new Date('2023-01-01') // Fixed reference date
@@ -83,22 +83,28 @@ export default function SpellingGame() {
   }, [])
 
   // Save game data to localStorage with specific values
-  const saveGameData = useCallback((finalScore: number, timeLeftValue: number) => {
+  const saveGameData = useCallback((finalScore: number, correctWords: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', finalScore.toString())
+    localStorage.setItem('lastCorrectWordCount', correctWords.toString())
     localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
-    console.log(`Game Data Saved: Score=${finalScore}, TimeLeft=${timeLeftValue}`)
+    console.log(`Game Data Saved: Score=${finalScore}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}`)
   }, [])
 
   // Load game data from localStorage
   const loadGameData = useCallback(() => {
     const storedScore = localStorage.getItem('lastScore')
+    const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
     const storedTimeLeft = localStorage.getItem('lastTimeLeft')
-    console.log(`Loaded Game Data: Score=${storedScore}, TimeLeft=${storedTimeLeft}`)
-    
+    console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+
     if (storedScore) {
       setScore(parseInt(storedScore, 10))
+    }
+    if (storedCorrectWords) {
+      setCorrectWordCount(parseInt(storedCorrectWords, 10))
+      correctWordCountRef.current = parseInt(storedCorrectWords, 10) // Sync ref
     }
     if (storedTimeLeft) {
       setTimeLeft(parseInt(storedTimeLeft, 10))
@@ -110,14 +116,14 @@ export default function SpellingGame() {
     const finalScore = correctWordCountRef.current * 50 + timeLeft // Compute based on correct words and time bonus
     setScore(finalScore)
     setGameState('finished')
-    saveGameData(finalScore, timeLeft) // Save all game data
+    saveGameData(finalScore, correctWordCountRef.current, timeLeft) // Save all game data
     if (correctWordCountRef.current > 0) {
-      toast({ 
+      toast({
         description: `Time's up! You scored ${finalScore} points.`,
         variant: "success"
       })
     } else {
-      toast({ 
+      toast({
         description: `Time's up! You scored 0 points.`,
         variant: "destructive"
       })
@@ -136,7 +142,7 @@ export default function SpellingGame() {
       setCorrectWordCount(prev => prev + 1) // Update state for UI
       toast({ description: 'Correct! +50 points.' })
     } else {
-      toast({ 
+      toast({
         description: `Incorrect. The word was "${currentWord.word}"`,
         variant: "destructive"
       })
@@ -147,9 +153,9 @@ export default function SpellingGame() {
     if (nextIndex < selectedWords.length && timeLeft > 0) {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
-      
+
       if (inputRef.current) inputRef.current.focus()
-      
+
       setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.src = selectedWords[nextIndex].audio_url
@@ -176,7 +182,7 @@ export default function SpellingGame() {
 
       if (error) {
         console.error('Error fetching words:', error)
-        toast({ 
+        toast({
           description: 'Failed to load words. Please refresh.',
           variant: "destructive"
         })
@@ -188,7 +194,7 @@ export default function SpellingGame() {
         const validWords = data.filter(word => word.word && word.definition && word.audio_url)
         if (validWords.length < 3) {
           console.error('Not enough valid words in the database.')
-          toast({ 
+          toast({
             description: 'Insufficient words in the database.',
             variant: "destructive"
           })
@@ -250,7 +256,7 @@ export default function SpellingGame() {
   // Function to start the game
   const startGame = () => {
     if (hasPlayedToday) {
-      toast({ 
+      toast({
         description: 'You have already played today. Play again tomorrow!',
         variant: "destructive"
       })
@@ -270,7 +276,7 @@ export default function SpellingGame() {
     if (firstWord) {
       setCurrentWordIndex(0)
       if (inputRef.current) inputRef.current.focus()
-      
+
       setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.src = firstWord.audio_url
@@ -292,7 +298,7 @@ export default function SpellingGame() {
     audioRef.current.load()
     audioRef.current.play().catch(error => {
       console.error('Error playing audio:', error)
-      toast({ 
+      toast({
         description: 'Failed to play audio. Please try again.',
         variant: "destructive"
       })
@@ -311,7 +317,7 @@ export default function SpellingGame() {
   // Function to share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that? #SpellingBee`
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -347,7 +353,7 @@ export default function SpellingGame() {
       <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl">
         <CardContent className="p-4">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">Spelling B-</h1>
-          
+
           {/* Game States */}
           {gameState === 'ready' && (
             <div className="space-y-4">
@@ -356,16 +362,18 @@ export default function SpellingGame() {
                 <br />
                 Autocorrect won&apos;t save you!
               </p>
-              <Button 
-                onClick={startGame} 
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors" 
+              <Button
+                onClick={startGame}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
                 size="lg"
                 disabled={hasPlayedToday} // Disable if already played
               >
                 <Play className="mr-2 h-5 w-5" /> Start Game
               </Button>
               {hasPlayedToday && (
-                <p className="text-center text-sm text-gray-500">You have already played today. Play again tomorrow!</p>
+                <p className="text-center text-2xl font-bold text-gray-800 mt-4">
+                  Play again tomorrow!
+                </p>
               )}
             </div>
           )}
@@ -384,12 +392,12 @@ export default function SpellingGame() {
                   {selectedWords[currentWordIndex].definition}
                 </p>
               </div>
-              
+
               {/* Audio Button */}
               <div className="flex justify-center">
-                <Button 
-                  onClick={playAudio} 
-                  variant="outline" 
+                <Button
+                  onClick={playAudio}
+                  variant="outline"
                   className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm"
                 >
                   <Volume2 className="mr-2 h-5 w-5" /> Play Pronunciation
@@ -400,7 +408,7 @@ export default function SpellingGame() {
               {/* Timer Bar */}
               <div className="relative pt-1">
                 <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
-                  <div 
+                  <div
                     style={{ width: `${(timeLeft / TOTAL_TIME) * 100}%` }}
                     className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out"
                   ></div>
@@ -413,7 +421,7 @@ export default function SpellingGame() {
                   {userInput || 'Type your answer'}
                 </p>
               </div>
-              
+
               {/* Hidden Input for Accessibility */}
               <input
                 ref={inputRef}
@@ -494,19 +502,19 @@ export default function SpellingGame() {
           {gameState === 'finished' && (
             <div className="text-center space-y-4">
               <p className="text-3xl font-bold text-gray-800">
-                {correctWordCountRef.current > 0 ? 'Congratulations!' : 'Better luck next time!'}
+                {correctWordCount > 0 ? 'Congratulations!' : 'Better luck next time!'}
               </p>
-              
+
               {/* Display Score and Message */}
               <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-4">
                 <div className="space-y-3">
-                  {correctWordCountRef.current > 0 ? (
+                  {correctWordCount > 0 ? (
                     <>
                       <div>
                         <p className="text-sm text-gray-600 mb-1">Correct Words:</p>
                         <div className="border border-green-200 p-2 rounded bg-green-50">
                           <code className="text-lg font-mono text-green-500">
-                            {correctWordCountRef.current} × 50 = {correctWordCountRef.current * 50} points
+                            {correctWordCount} × 50 = {correctWordCount * 50} points
                           </code>
                         </div>
                       </div>
@@ -553,9 +561,9 @@ export default function SpellingGame() {
               </div>
 
               {/* Share Results */}
-              <Button 
-                onClick={shareResults} 
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors mt-4" 
+              <Button
+                onClick={shareResults}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors mt-4"
                 size="lg"
               >
                 <Share2 className="mr-2 h-5 w-5" /> Share Results
