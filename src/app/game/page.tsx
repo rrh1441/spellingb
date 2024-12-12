@@ -69,146 +69,30 @@ export default function SpellingGame() {
     }
   }, [])
 
-  useEffect(() => {
-    const fetchWords = async () => {
-      setIsLoading(true)
-      const { data, error } = await supabase
-        .from('audio_files')
-        .select('*')
-      
-      if (error) {
-        console.error('Error fetching words:', error)
-        toast({ 
-          description: 'Failed to load words. Please refresh.',
-          variant: "destructive"
-        })
-        return
-      }
-
-      if (data) {
-        const validWords = data.filter(word => word.word && word.definition && word.audio_url)
-        const shuffled = shuffleArray([...validWords])
-        const todaysWords = getTodayWords(shuffled)
-        setSelectedWords(todaysWords)
-      }
-      setIsLoading(false)
-    }
-
-    fetchWords()
-  }, [getTodayWords])
-
-  useEffect(() => {
-    // Check if user has played today
-    const played = hasUserPlayedToday()
-    setHasPlayedToday(played)
-    if (played) {
-      loadScore()
+  // Function to handle game end
+  const handleGameEnd = useCallback(() => {
+    if (correctWordCount > 0) {
+      const timeBonus = timeLeft * 1 // Time Bonus = Remaining Time × 1 point
+      const finalScore = score + timeBonus
+      setScore(finalScore)
       setGameState('finished')
-    }
-  }, [hasUserPlayedToday, loadScore])
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (gameState === 'playing' && timeLeft > 0) {
-      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
-    } else if (timeLeft === 0 && gameState === 'playing') {
-      handleGameEnd()
-    }
-    return () => clearTimeout(timer)
-  }, [timeLeft, gameState, handleGameEnd])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState === 'playing') {
-        if (e.key === 'Backspace') {
-          setUserInput(prev => prev.slice(0, -1))
-        } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
-          setUserInput(prev => prev + e.key)
-        } else if (e.key === 'Enter') {
-          handleSubmit()
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [gameState, handleSubmit])
-
-  const shuffleArray = <T,>(array: T[]): T[] => {
-    let currentIndex = array.length
-    let randomIndex: number
-    const newArray = [...array]
-
-    while (currentIndex !== 0) {
-      randomIndex = Math.floor(Math.random() * currentIndex)
-      currentIndex--
-      
-      [newArray[currentIndex], newArray[randomIndex]] = [
-        newArray[randomIndex],
-        newArray[currentIndex]
-      ]
-    }
-
-    return newArray
-  }
-
-  const startGame = () => {
-    if (hasPlayedToday) {
+      saveScore()
       toast({ 
-        description: 'You have already played today. Come back tomorrow!',
-        variant: "destructive"
+        description: `Time's up! You scored ${finalScore} points.`,
+        variant: "success"
       })
-      return
-    }
-
-    setGameState('playing')
-    setTimeLeft(30)
-    setUserInput('')
-    setScore(0)
-    setCorrectWordCount(0)
-    setCurrentWordIndex(0)
-
-    // Load the first word
-    const firstWord = selectedWords[0]
-    if (firstWord) {
-      setCurrentWordIndex(0)
-      if (inputRef.current) inputRef.current.focus()
-      
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.src = firstWord.audio_url
-          audioRef.current.load()
-          audioRef.current.play().catch(error => {
-            console.error('Failed to play audio:', error)
-          })
-        }
-      }, 500)
-    }
-  }
-
-  const playAudio = () => {
-    const currentWord = selectedWords[currentWordIndex]
-    if (!currentWord?.audio_url || !audioRef.current) return
-
-    audioRef.current.src = currentWord.audio_url
-    audioRef.current.load()
-    audioRef.current.play().catch(error => {
-      console.error('Error playing audio:', error)
-      toast({ 
-        description: 'Failed to play audio. Please try again.',
-        variant: "destructive"
-      })
-    })
-  }
-
-  const handleKeyPress = (key: string) => {
-    if (key === 'backspace') {
-      setUserInput(prev => prev.slice(0, -1))
     } else {
-      setUserInput(prev => prev + key)
+      setScore(0)
+      setGameState('finished')
+      saveScore()
+      toast({ 
+        description: `Time's up! You scored 0 points.`,
+        variant: "destructive"
+      })
     }
-  }
+  }, [correctWordCount, timeLeft, score, saveScore])
 
+  // Function to handle user submission
   const handleSubmit = useCallback(() => {
     if (currentWordIndex >= selectedWords.length) return
 
@@ -249,28 +133,154 @@ export default function SpellingGame() {
     }
   }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
 
-  const handleGameEnd = useCallback(() => {
-    if (correctWordCount > 0) {
-      const timeBonus = timeLeft * 1 // Time Bonus = Remaining Time × 1 point
-      const finalScore = score + timeBonus
-      setScore(finalScore)
+  // Function to fetch words from Supabase
+  useEffect(() => {
+    const fetchWords = async () => {
+      setIsLoading(true)
+      const { data, error } = await supabase
+        .from('audio_files')
+        .select('*')
+      
+      if (error) {
+        console.error('Error fetching words:', error)
+        toast({ 
+          description: 'Failed to load words. Please refresh.',
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (data) {
+        const validWords = data.filter(word => word.word && word.definition && word.audio_url)
+        const shuffled = shuffleArray([...validWords])
+        const todaysWords = getTodayWords(shuffled)
+        setSelectedWords(todaysWords)
+      }
+      setIsLoading(false)
+    }
+
+    fetchWords()
+  }, [getTodayWords])
+
+  // Check if user has played today
+  useEffect(() => {
+    const played = hasUserPlayedToday()
+    setHasPlayedToday(played)
+    if (played) {
+      loadScore()
       setGameState('finished')
-      saveScore()
+    }
+  }, [hasUserPlayedToday, loadScore])
+
+  // Timer Countdown
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (gameState === 'playing' && timeLeft > 0) {
+      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
+    } else if (timeLeft === 0 && gameState === 'playing') {
+      handleGameEnd()
+    }
+    return () => clearTimeout(timer)
+  }, [timeLeft, gameState, handleGameEnd])
+
+  // Handling Keyboard Inputs
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState === 'playing') {
+        if (e.key === 'Backspace') {
+          setUserInput(prev => prev.slice(0, -1))
+        } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
+          setUserInput(prev => prev + e.key)
+        } else if (e.key === 'Enter') {
+          handleSubmit()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [gameState, handleSubmit])
+
+  // Function to shuffle an array
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    let currentIndex = array.length
+    let randomIndex: number
+    const newArray = [...array]
+
+    while (currentIndex !== 0) {
+      randomIndex = Math.floor(Math.random() * currentIndex)
+      currentIndex--
+      
+      [newArray[currentIndex], newArray[randomIndex]] = [
+        newArray[randomIndex],
+        newArray[currentIndex]
+      ]
+    }
+
+    return newArray
+  }
+
+  // Function to start the game
+  const startGame = () => {
+    if (hasPlayedToday) {
       toast({ 
-        description: `Time's up! You scored ${finalScore} points.`,
-        variant: "success"
-      })
-    } else {
-      setScore(0)
-      setGameState('finished')
-      saveScore()
-      toast({ 
-        description: `Time's up! You scored 0 points.`,
+        description: 'You have already played today. Come back tomorrow!',
         variant: "destructive"
       })
+      return
     }
-  }, [correctWordCount, timeLeft, score, saveScore])
 
+    setGameState('playing')
+    setTimeLeft(30)
+    setUserInput('')
+    setScore(0)
+    setCorrectWordCount(0)
+    setCurrentWordIndex(0)
+
+    // Load the first word
+    const firstWord = selectedWords[0]
+    if (firstWord) {
+      setCurrentWordIndex(0)
+      if (inputRef.current) inputRef.current.focus()
+      
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.src = firstWord.audio_url
+          audioRef.current.load()
+          audioRef.current.play().catch(error => {
+            console.error('Failed to play audio:', error)
+          })
+        }
+      }, 500)
+    }
+  }
+
+  // Function to play audio pronunciation
+  const playAudio = () => {
+    const currentWord = selectedWords[currentWordIndex]
+    if (!currentWord?.audio_url || !audioRef.current) return
+
+    audioRef.current.src = currentWord.audio_url
+    audioRef.current.load()
+    audioRef.current.play().catch(error => {
+      console.error('Error playing audio:', error)
+      toast({ 
+        description: 'Failed to play audio. Please try again.',
+        variant: "destructive"
+      })
+    })
+  }
+
+  // Function to handle key presses from the on-screen keyboard
+  const handleKeyPress = (key: string) => {
+    if (key === 'backspace') {
+      setUserInput(prev => prev.slice(0, -1))
+    } else {
+      setUserInput(prev => prev + key)
+    }
+  }
+
+  // Function to share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that? #SpellingBee`
     
