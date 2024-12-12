@@ -58,11 +58,11 @@ export default function SpellingGame() {
   }, [])
 
   // Save score to localStorage
-  const saveScore = useCallback(() => {
+  const saveScore = useCallback((scoreToSave: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
-    localStorage.setItem('lastScore', score.toString())
-  }, [score])
+    localStorage.setItem('lastScore', scoreToSave.toString())
+  }, [])
 
   // Load score from localStorage
   const loadScore = useCallback(() => {
@@ -79,7 +79,7 @@ export default function SpellingGame() {
       const finalScore = score + timeBonus
       setScore(finalScore)
       setGameState('finished')
-      saveScore()
+      saveScore(finalScore) // Pass finalScore instead of relying on state
       toast({ 
         description: `Time's up! You scored ${finalScore} points.`,
         variant: "success"
@@ -87,7 +87,7 @@ export default function SpellingGame() {
     } else {
       setScore(0)
       setGameState('finished')
-      saveScore()
+      saveScore(0) // Explicitly save 0 points
       toast({ 
         description: `Time's up! You scored 0 points.`,
         variant: "destructive"
