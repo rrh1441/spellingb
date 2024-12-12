@@ -531,8 +531,9 @@ export default function SpellingGame() {
                           </code>
                         </div>
                       </div>
-                      <p className="text-center text-gray-600 mt-4">
-                        You got {score} points! Come back again tomorrow.
+                      {/* Removed "You got X!" and adjusted the message */}
+                      <p className="text-center text-2xl font-bold text-gray-800 mt-4">
+                        Come back again tomorrow.
                       </p>
                     </>
                   ) : (
@@ -541,7 +542,8 @@ export default function SpellingGame() {
                       <div className="border border-red-200 p-2 rounded bg-red-50">
                         <code className="text-xl font-mono text-red-500">0 points</code>
                       </div>
-                      <p className="text-center text-gray-600 mt-4">
+                      {/* Adjusted the message to make it bigger and bolded */}
+                      <p className="text-center text-2xl font-bold text-gray-800 mt-4">
                         Better luck next time! Come back again tomorrow.
                       </p>
                     </div>
