@@ -200,13 +200,16 @@ export default function SpellingGame() {
     fetchWords()
   }, [getTodayWords])
 
-  // Check if user has played today
+  // Check if user has played today and load score if so
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
       loadScore()
-      setGameState('finished')
+      // Delay setting gameState to ensure score is loaded
+      setTimeout(() => {
+        setGameState('finished')
+      }, 100)
     }
   }, [hasUserPlayedToday, loadScore])
 
@@ -488,9 +491,10 @@ export default function SpellingGame() {
                 {correctWordCount > 0 ? 'Congratulations!' : 'Better luck next time!'}
               </p>
               
+              {/* Display Score and Message */}
               <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-4">
                 <div className="space-y-3">
-                  {correctWordCount > 0 ? (
+                  {score > 0 ? (
                     <>
                       <div>
                         <p className="text-sm text-gray-600 mb-1">Correct Words:</p>
@@ -516,6 +520,9 @@ export default function SpellingGame() {
                           </code>
                         </div>
                       </div>
+                      <p className="text-center text-gray-600 mt-4">
+                        You got {score} points! Come back again tomorrow.
+                      </p>
                     </>
                   ) : (
                     <div>
@@ -523,6 +530,9 @@ export default function SpellingGame() {
                       <div className="border border-red-200 p-2 rounded bg-red-50">
                         <code className="text-xl font-mono text-red-500">0 points</code>
                       </div>
+                      <p className="text-center text-gray-600 mt-4">
+                        Better luck next time! Come back again tomorrow.
+                      </p>
                     </div>
                   )}
                   <div>
