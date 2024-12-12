@@ -111,7 +111,7 @@ export default function SpellingGame() {
   const handleGameEnd = useCallback(() => {
     if (correctWordCount > 0) {
       const timeBonus = timeLeft * 1 // Time Bonus = Remaining Time × 1 point
-      const finalScore = score + timeBonus
+      const finalScore = correctWordCount * 50 + timeBonus // Compute based on correct words
       setScore(finalScore)
       setGameState('finished')
       saveGameData(finalScore, correctWordCount, timeLeft) // Save all game data
@@ -128,7 +128,7 @@ export default function SpellingGame() {
         variant: "destructive"
       })
     }
-  }, [correctWordCount, timeLeft, score, saveGameData])
+  }, [correctWordCount, timeLeft, saveGameData])
 
   // Function to handle user submission
   const handleSubmit = useCallback(() => {
@@ -138,7 +138,6 @@ export default function SpellingGame() {
     const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
 
     if (isCorrect) {
-      setScore(prev => prev + 50) // +50 points for correct word
       setCorrectWordCount(prev => prev + 1)
       toast({ description: 'Correct! +50 points.' })
     } else {
@@ -257,7 +256,7 @@ export default function SpellingGame() {
   const startGame = () => {
     if (hasPlayedToday) {
       toast({ 
-        description: 'You have already played today. Come back tomorrow!',
+        description: 'You have already played today. Play again tomorrow!',
         variant: "destructive"
       })
       return
@@ -370,7 +369,7 @@ export default function SpellingGame() {
                 <Play className="mr-2 h-5 w-5" /> Start Game
               </Button>
               {hasPlayedToday && (
-                <p className="text-center text-sm text-gray-500">You have already played today. Come back tomorrow!</p>
+                <p className="text-center text-sm text-gray-500">You have already played today. Play again tomorrow!</p>
               )}
             </div>
           )}
@@ -531,9 +530,9 @@ export default function SpellingGame() {
                           </code>
                         </div>
                       </div>
-                      {/* Removed "You got X!" and adjusted the message */}
+                      {/* Updated Message */}
                       <p className="text-center text-2xl font-bold text-gray-800 mt-4">
-                        Come back again tomorrow.
+                        Play again tomorrow!
                       </p>
                     </>
                   ) : (
@@ -542,9 +541,9 @@ export default function SpellingGame() {
                       <div className="border border-red-200 p-2 rounded bg-red-50">
                         <code className="text-xl font-mono text-red-500">0 points</code>
                       </div>
-                      {/* Adjusted the message to make it bigger and bolded */}
+                      {/* Updated Message */}
                       <p className="text-center text-2xl font-bold text-gray-800 mt-4">
-                        Better luck next time! Come back again tomorrow.
+                        Better luck next time! Play again tomorrow!
                       </p>
                     </div>
                   )}
