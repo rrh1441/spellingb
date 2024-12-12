@@ -94,21 +94,33 @@ export default function SpellingGame() {
 
   // Load game data from localStorage
   const loadGameData = useCallback(() => {
-    const storedScore = localStorage.getItem('lastScore')
-    const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
-    const storedTimeLeft = localStorage.getItem('lastTimeLeft')
-    console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+    try {
+      const storedScore = localStorage.getItem('lastScore')
+      const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
+      const storedTimeLeft = localStorage.getItem('lastTimeLeft')
+      console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
 
-    if (storedScore) {
-      setScore(parseInt(storedScore, 10))
-    }
-    if (storedCorrectWords) {
-      const correctWords = parseInt(storedCorrectWords, 10)
-      setCorrectWordCount(correctWords)
-      correctWordCountRef.current = correctWords // Sync ref
-    }
-    if (storedTimeLeft) {
-      setTimeLeft(parseInt(storedTimeLeft, 10))
+      if (storedScore) {
+        setScore(parseInt(storedScore, 10))
+      }
+      if (storedCorrectWords) {
+        const correctWords = parseInt(storedCorrectWords, 10)
+        setCorrectWordCount(correctWords)
+        correctWordCountRef.current = correctWords // Sync ref
+      }
+      if (storedTimeLeft) {
+        setTimeLeft(parseInt(storedTimeLeft, 10))
+      }
+    } catch (error) {
+      console.error('Error loading game data:', error)
+      toast({
+        description: 'Failed to load your previous game data. Starting a new game.',
+        variant: "destructive"
+      })
+      localStorage.removeItem('lastPlayedDate')
+      localStorage.removeItem('lastScore')
+      localStorage.removeItem('lastCorrectWordCount')
+      localStorage.removeItem('lastTimeLeft')
     }
   }, [])
 
@@ -426,7 +438,7 @@ export default function SpellingGame() {
                 type="text"
                 className="absolute opacity-0 w-0 h-0 border-none outline-none"
                 value={userInput}
-                onChange={(e) => {
+                onChange={() => {
                   // Prevent direct typing by resetting the input value
                   setUserInput(userInput)
                 }}
