@@ -15,7 +15,10 @@ interface Word {
 }
 
 export default function SpellingGame() {
-  const [timeLeft, setTimeLeft] = useState(30)
+  // Define the total game time in seconds
+  const TOTAL_TIME = 60
+
+  const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'finished'>('ready')
   const [userInput, setUserInput] = useState('')
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
@@ -231,7 +234,7 @@ export default function SpellingGame() {
     }
 
     setGameState('playing')
-    setTimeLeft(30)
+    setTimeLeft(TOTAL_TIME)
     setUserInput('')
     setScore(0)
     setCorrectWordCount(0)
@@ -373,7 +376,7 @@ export default function SpellingGame() {
               <div className="relative pt-1">
                 <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
                   <div 
-                    style={{ width: `${(timeLeft / 30) * 100}%` }}
+                    style={{ width: `${(timeLeft / TOTAL_TIME) * 100}%` }}
                     className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out"
                   ></div>
                 </div>
