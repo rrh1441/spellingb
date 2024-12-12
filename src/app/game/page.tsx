@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Play, Share2 } from 'lucide-react' // Removed Backspace icon
+import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 
@@ -21,7 +21,6 @@ export default function SpellingGame() {
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
   const [wordsList, setWordsList] = useState<Word[]>([])
-  const [remainingWords, setRemainingWords] = useState<Word[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState(0)
@@ -36,7 +35,7 @@ export default function SpellingGame() {
   }
 
   // Function to select three words based on the current date
-  const getTodayWords = (wordList: Word[]): Word[] => {
+  const getTodayWords = useCallback((wordList: Word[]): Word[] => {
     const referenceDate = new Date('2023-01-01')
     const today = new Date()
     const diffTime = today.getTime() - referenceDate.getTime()
@@ -47,29 +46,29 @@ export default function SpellingGame() {
       wordList[(offset + 1) % wordList.length],
       wordList[(offset + 2) % wordList.length]
     ]
-  }
+  }, [])
 
   // Check if user has played today
-  const hasUserPlayedToday = (): boolean => {
+  const hasUserPlayedToday = useCallback((): boolean => {
     const lastPlayedDate = localStorage.getItem('lastPlayedDate')
     const today = getTodayDate()
     return lastPlayedDate === today
-  }
+  }, [])
 
   // Save score to localStorage
-  const saveScore = () => {
+  const saveScore = useCallback(() => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', score.toString())
-  }
+  }, [score])
 
   // Load score from localStorage
-  const loadScore = () => {
+  const loadScore = useCallback(() => {
     const storedScore = localStorage.getItem('lastScore')
     if (storedScore) {
       setScore(parseInt(storedScore, 10))
     }
-  }
+  }, [])
 
   useEffect(() => {
     const fetchWords = async () => {
@@ -91,7 +90,6 @@ export default function SpellingGame() {
         const validWords = data.filter(word => word.word && word.definition && word.audio_url)
         const shuffled = shuffleArray([...validWords])
         setWordsList(shuffled)
-        setRemainingWords(shuffled)
         const todaysWords = getTodayWords(shuffled)
         setSelectedWords(todaysWords)
       }
@@ -99,20 +97,17 @@ export default function SpellingGame() {
     }
 
     fetchWords()
-  }, [])
+  }, [getTodayWords])
 
   useEffect(() => {
     // Check if user has played today
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
-      const storedScore = localStorage.getItem('lastScore')
-      if (storedScore) {
-        setScore(parseInt(storedScore, 10))
-      }
+      loadScore()
       setGameState('finished')
     }
-  }, [wordsList])
+  }, [hasUserPlayedToday, loadScore])
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -122,7 +117,7 @@ export default function SpellingGame() {
       handleGameEnd()
     }
     return () => clearTimeout(timer)
-  }, [timeLeft, gameState])
+  }, [timeLeft, gameState, handleGameEnd])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -139,7 +134,7 @@ export default function SpellingGame() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [gameState, userInput, currentWordIndex])
+  }, [gameState, handleSubmit])
 
   const shuffleArray = <T,>(array: T[]): T[] => {
     let currentIndex = array.length
@@ -194,9 +189,10 @@ export default function SpellingGame() {
   }
 
   const playAudio = () => {
-    if (!selectedWords[currentWordIndex]?.audio_url || !audioRef.current) return
+    const currentWord = selectedWords[currentWordIndex]
+    if (!currentWord?.audio_url || !audioRef.current) return
 
-    audioRef.current.src = selectedWords[currentWordIndex].audio_url
+    audioRef.current.src = currentWord.audio_url
     audioRef.current.load()
     audioRef.current.play().catch(error => {
       console.error('Error playing audio:', error)
@@ -215,7 +211,7 @@ export default function SpellingGame() {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (currentWordIndex >= selectedWords.length) return
 
     const currentWord = selectedWords[currentWordIndex]
@@ -253,17 +249,17 @@ export default function SpellingGame() {
       // End game if no more words
       handleGameEnd()
     }
-  }
+  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
 
-  const handleGameEnd = () => {
+  const handleGameEnd = useCallback(() => {
     if (correctWordCount > 0) {
       const timeBonus = timeLeft * 1 // Time Bonus = Remaining Time × 1 point
-      setScore(prev => prev + timeBonus)
+      const finalScore = score + timeBonus
+      setScore(finalScore)
       setGameState('finished')
-      setScore(prev => prev + timeBonus)
       saveScore()
       toast({ 
-        description: `Time's up! You scored ${score + timeBonus} points.`,
+        description: `Time's up! You scored ${finalScore} points.`,
         variant: "success"
       })
     } else {
@@ -275,7 +271,7 @@ export default function SpellingGame() {
         variant: "destructive"
       })
     }
-  }
+  }, [correctWordCount, timeLeft, score, saveScore])
 
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that? #SpellingBee`
