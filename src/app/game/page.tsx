@@ -358,7 +358,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won't save you!
+                Autocorrect won&apos;t save you!
               </p>
               <Button
                 onClick={startGame}
