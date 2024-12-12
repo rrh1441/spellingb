@@ -25,10 +25,13 @@ export default function SpellingGame() {
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [score, setScore] = useState(0)
-  const [correctWordCount, setCorrectWordCount] = useState(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Mutable reference to track correct words count
+  const correctWordCountRef = useRef<number>(0)
+  const [correctWordCount, setCorrectWordCount] = useState<number>(0)
 
   // Helper function to get today's date in YYYY-MM-DD format (UTC)
   const getTodayDate = (): string => {
@@ -80,27 +83,22 @@ export default function SpellingGame() {
   }, [])
 
   // Save game data to localStorage with specific values
-  const saveGameData = useCallback((scoreToSave: number, correctWords: number, timeLeftValue: number) => {
+  const saveGameData = useCallback((finalScore: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
-    localStorage.setItem('lastScore', scoreToSave.toString())
-    localStorage.setItem('lastCorrectWordCount', correctWords.toString())
+    localStorage.setItem('lastScore', finalScore.toString())
     localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
-    console.log(`Game Data Saved: Score=${scoreToSave}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}`)
+    console.log(`Game Data Saved: Score=${finalScore}, TimeLeft=${timeLeftValue}`)
   }, [])
 
   // Load game data from localStorage
   const loadGameData = useCallback(() => {
     const storedScore = localStorage.getItem('lastScore')
-    const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
     const storedTimeLeft = localStorage.getItem('lastTimeLeft')
-    console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+    console.log(`Loaded Game Data: Score=${storedScore}, TimeLeft=${storedTimeLeft}`)
     
     if (storedScore) {
       setScore(parseInt(storedScore, 10))
-    }
-    if (storedCorrectWords) {
-      setCorrectWordCount(parseInt(storedCorrectWords, 10))
     }
     if (storedTimeLeft) {
       setTimeLeft(parseInt(storedTimeLeft, 10))
@@ -109,26 +107,22 @@ export default function SpellingGame() {
 
   // Function to handle game end
   const handleGameEnd = useCallback(() => {
-    if (correctWordCount > 0) {
-      const timeBonus = timeLeft * 1 // Time Bonus = Remaining Time × 1 point
-      const finalScore = correctWordCount * 50 + timeBonus // Compute based on correct words
-      setScore(finalScore)
-      setGameState('finished')
-      saveGameData(finalScore, correctWordCount, timeLeft) // Save all game data
+    const finalScore = correctWordCountRef.current * 50 + timeLeft // Compute based on correct words and time bonus
+    setScore(finalScore)
+    setGameState('finished')
+    saveGameData(finalScore, timeLeft) // Save all game data
+    if (correctWordCountRef.current > 0) {
       toast({ 
         description: `Time's up! You scored ${finalScore} points.`,
         variant: "success"
       })
     } else {
-      setScore(0)
-      setGameState('finished')
-      saveGameData(0, 0, timeLeft) // Save zero score and zero correct words
       toast({ 
         description: `Time's up! You scored 0 points.`,
         variant: "destructive"
       })
     }
-  }, [correctWordCount, timeLeft, saveGameData])
+  }, [timeLeft, saveGameData])
 
   // Function to handle user submission
   const handleSubmit = useCallback(() => {
@@ -138,7 +132,8 @@ export default function SpellingGame() {
     const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
 
     if (isCorrect) {
-      setCorrectWordCount(prev => prev + 1)
+      correctWordCountRef.current += 1 // Update the ref immediately
+      setCorrectWordCount(prev => prev + 1) // Update state for UI
       toast({ description: 'Correct! +50 points.' })
     } else {
       toast({ 
@@ -267,6 +262,7 @@ export default function SpellingGame() {
     setUserInput('')
     setScore(0)
     setCorrectWordCount(0)
+    correctWordCountRef.current = 0 // Reset the ref
     setCurrentWordIndex(0)
 
     // Load the first word
@@ -498,19 +494,19 @@ export default function SpellingGame() {
           {gameState === 'finished' && (
             <div className="text-center space-y-4">
               <p className="text-3xl font-bold text-gray-800">
-                {correctWordCount > 0 ? 'Congratulations!' : 'Better luck next time!'}
+                {correctWordCountRef.current > 0 ? 'Congratulations!' : 'Better luck next time!'}
               </p>
               
               {/* Display Score and Message */}
               <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-4">
                 <div className="space-y-3">
-                  {score > 0 ? (
+                  {correctWordCountRef.current > 0 ? (
                     <>
                       <div>
                         <p className="text-sm text-gray-600 mb-1">Correct Words:</p>
                         <div className="border border-green-200 p-2 rounded bg-green-50">
                           <code className="text-lg font-mono text-green-500">
-                            {correctWordCount} × 50 = {correctWordCount * 50} points
+                            {correctWordCountRef.current} × 50 = {correctWordCountRef.current * 50} points
                           </code>
                         </div>
                       </div>
