@@ -7,6 +7,13 @@ import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 
+interface Word {
+  id: number
+  word: string
+  definition: string
+  audio_url: string
+}
+
 // Helper function to seed a random number generator
 const seedRandom = (seed: number): () => number => {
   let value = seed
@@ -28,13 +35,6 @@ const deterministicShuffle = (array: Word[], seed: number): Word[] => {
   return shuffled
 }
 
-interface Word {
-  id: number
-  word: string
-  definition: string
-  audio_url: string
-}
-
 export default function SpellingGame() {
   // Define the total game time in seconds
   const TOTAL_TIME = 60
@@ -46,13 +46,13 @@ export default function SpellingGame() {
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [score, setScore] = useState(0)
+  const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Mutable reference to track correct words count
   const correctWordCountRef = useRef<number>(0)
-  const [correctWordCount, setCorrectWordCount] = useState<number>(0)
 
   // Helper function to get today's date in YYYY-MM-DD format (UTC)
   const getTodayDate = (): string => {
@@ -103,8 +103,9 @@ export default function SpellingGame() {
       setScore(parseInt(storedScore, 10))
     }
     if (storedCorrectWords) {
-      setCorrectWordCount(parseInt(storedCorrectWords, 10))
-      correctWordCountRef.current = parseInt(storedCorrectWords, 10) // Sync ref
+      const correctWords = parseInt(storedCorrectWords, 10)
+      setCorrectWordCount(correctWords)
+      correctWordCountRef.current = correctWords // Sync ref
     }
     if (storedTimeLeft) {
       setTimeLeft(parseInt(storedTimeLeft, 10))
@@ -271,22 +272,19 @@ export default function SpellingGame() {
     correctWordCountRef.current = 0 // Reset the ref
     setCurrentWordIndex(0)
 
-    // Load the first word
-    const firstWord = selectedWords[0]
-    if (firstWord) {
-      setCurrentWordIndex(0)
-      if (inputRef.current) inputRef.current.focus()
-
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.src = firstWord.audio_url
-          audioRef.current.load()
-          audioRef.current.play().catch(error => {
-            console.error('Failed to play audio:', error)
-          })
-        }
-      }, 500)
-    }
+    // Focus the hidden input to trigger the virtual keyboard on iPads
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus()
+      }
+      if (audioRef.current && selectedWords[0]) {
+        audioRef.current.src = selectedWords[0].audio_url
+        audioRef.current.load()
+        audioRef.current.play().catch(error => {
+          console.error('Failed to play audio:', error)
+        })
+      }
+    }, 500)
   }
 
   // Function to play audio pronunciation
@@ -360,7 +358,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won&apos;t save you!
+                Autocorrect won't save you!
               </p>
               <Button
                 onClick={startGame}
@@ -426,11 +424,12 @@ export default function SpellingGame() {
               <input
                 ref={inputRef}
                 type="text"
-                className="sr-only"
+                className="absolute opacity-0 w-0 h-0 border-none outline-none"
                 value={userInput}
-                readOnly
-                onFocus={(e) => e.target.blur()}
-                onChange={(e) => setUserInput(e.target.value)}
+                onChange={(e) => {
+                  // Prevent direct typing by resetting the input value
+                  setUserInput(userInput)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
