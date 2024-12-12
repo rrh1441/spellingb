@@ -20,7 +20,6 @@ export default function SpellingGame() {
   const [userInput, setUserInput] = useState('')
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
-  const [wordsList, setWordsList] = useState<Word[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState(0)
@@ -89,7 +88,6 @@ export default function SpellingGame() {
       if (data) {
         const validWords = data.filter(word => word.word && word.definition && word.audio_url)
         const shuffled = shuffleArray([...validWords])
-        setWordsList(shuffled)
         const todaysWords = getTodayWords(shuffled)
         setSelectedWords(todaysWords)
       }
