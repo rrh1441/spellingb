@@ -79,20 +79,31 @@ export default function SpellingGame() {
     return lastPlayedDate === today
   }, [])
 
-  // Save score to localStorage with a specific score
-  const saveScore = useCallback((scoreToSave: number) => {
+  // Save game data to localStorage with specific values
+  const saveGameData = useCallback((scoreToSave: number, correctWords: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', scoreToSave.toString())
-    console.log(`Score saved: ${scoreToSave}`) // Debugging Line
+    localStorage.setItem('lastCorrectWordCount', correctWords.toString())
+    localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
+    console.log(`Game Data Saved: Score=${scoreToSave}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}`)
   }, [])
 
-  // Load score from localStorage
-  const loadScore = useCallback(() => {
+  // Load game data from localStorage
+  const loadGameData = useCallback(() => {
     const storedScore = localStorage.getItem('lastScore')
-    console.log(`Loaded Score: ${storedScore}`) // Debugging Line
+    const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
+    const storedTimeLeft = localStorage.getItem('lastTimeLeft')
+    console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+    
     if (storedScore) {
       setScore(parseInt(storedScore, 10))
+    }
+    if (storedCorrectWords) {
+      setCorrectWordCount(parseInt(storedCorrectWords, 10))
+    }
+    if (storedTimeLeft) {
+      setTimeLeft(parseInt(storedTimeLeft, 10))
     }
   }, [])
 
@@ -103,7 +114,7 @@ export default function SpellingGame() {
       const finalScore = score + timeBonus
       setScore(finalScore)
       setGameState('finished')
-      saveScore(finalScore) // Pass finalScore instead of relying on state
+      saveGameData(finalScore, correctWordCount, timeLeft) // Save all game data
       toast({ 
         description: `Time's up! You scored ${finalScore} points.`,
         variant: "success"
@@ -111,13 +122,13 @@ export default function SpellingGame() {
     } else {
       setScore(0)
       setGameState('finished')
-      saveScore(0) // Explicitly save 0 points
+      saveGameData(0, 0, timeLeft) // Save zero score and zero correct words
       toast({ 
         description: `Time's up! You scored 0 points.`,
         variant: "destructive"
       })
     }
-  }, [correctWordCount, timeLeft, score, saveScore])
+  }, [correctWordCount, timeLeft, score, saveGameData])
 
   // Function to handle user submission
   const handleSubmit = useCallback(() => {
@@ -200,18 +211,18 @@ export default function SpellingGame() {
     fetchWords()
   }, [getTodayWords])
 
-  // Check if user has played today and load score if so
+  // Check if user has played today and load game data if so
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
-      loadScore()
-      // Delay setting gameState to ensure score is loaded
+      loadGameData()
+      // Delay setting gameState to ensure all data is loaded
       setTimeout(() => {
         setGameState('finished')
       }, 100)
     }
-  }, [hasUserPlayedToday, loadScore])
+  }, [hasUserPlayedToday, loadGameData])
 
   // Timer Countdown
   useEffect(() => {
