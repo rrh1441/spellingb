@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
+import useIsIpad from '@/hooks/useIsIpad' // Import the custom hook
 
 interface Word {
   id: number
@@ -53,6 +54,9 @@ export default function SpellingGame() {
 
   // Mutable reference to track correct words count
   const correctWordCountRef = useRef<number>(0)
+
+  // Use the custom hook to detect if the device is an iPad
+  const isIpad = useIsIpad()
 
   // Helper function to get today's date in YYYY-MM-DD format (UTC)
   const getTodayDate = (): string => {
@@ -167,7 +171,7 @@ export default function SpellingGame() {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
 
-      if (inputRef.current) inputRef.current.focus()
+      if (isIpad && inputRef.current) inputRef.current.focus() // Only focus on iPads
 
       setTimeout(() => {
         if (audioRef.current) {
@@ -182,7 +186,7 @@ export default function SpellingGame() {
       // End game if no more words
       handleGameEnd()
     }
-  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
+  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput, isIpad])
 
   // Function to fetch words from Supabase
   useEffect(() => {
@@ -286,7 +290,7 @@ export default function SpellingGame() {
 
     // Focus the hidden input to trigger the virtual keyboard on iPads
     setTimeout(() => {
-      if (inputRef.current) {
+      if (isIpad && inputRef.current) {
         inputRef.current.focus()
       }
       if (audioRef.current && selectedWords[0]) {
@@ -438,9 +442,11 @@ export default function SpellingGame() {
                 type="text"
                 className="absolute opacity-0 w-0 h-0 border-none outline-none"
                 value={userInput}
-                onChange={() => {
-                  // Prevent direct typing by resetting the input value
-                  setUserInput(userInput)
+                readOnly={!isIpad} // Set readOnly based on device
+                onChange={(e) => {
+                  if (isIpad) {
+                    setUserInput(e.target.value)
+                  }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
