@@ -30,23 +30,45 @@ export default function SpellingGame() {
   const audioRef = useRef<HTMLAudioElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Helper function to get today's date in YYYY-MM-DD format
+  // Helper function to get today's date in YYYY-MM-DD format (UTC)
   const getTodayDate = (): string => {
     const today = new Date()
-    return today.toISOString().split('T')[0]
+    return today.toISOString().split('T')[0] // Ensures UTC date consistency
+  }
+
+  // Seedable RNG using Linear Congruential Generator (LCG)
+  const seedRandom = (seed: number): () => number => {
+    let value = seed
+    return () => {
+      // LCG parameters
+      value = (value * 9301 + 49297) % 233280
+      return value / 233280
+    }
+  }
+
+  // Deterministic Fisher-Yates Shuffle
+  const deterministicShuffle = (array: Word[], seed: number): Word[] => {
+    const shuffled = [...array]
+    const rand = seedRandom(seed)
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
   }
 
   // Function to select three words based on the current date
   const getTodayWords = useCallback((wordList: Word[]): Word[] => {
-    const referenceDate = new Date('2023-01-01')
+    const referenceDate = new Date('2023-01-01') // Fixed reference date
     const today = new Date()
     const diffTime = today.getTime() - referenceDate.getTime()
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-    const offset = (diffDays * 3) % wordList.length
+    const seed = diffDays // Using days since reference as seed
+    const shuffledWords = deterministicShuffle(wordList, seed)
     return [
-      wordList[offset],
-      wordList[(offset + 1) % wordList.length],
-      wordList[(offset + 2) % wordList.length]
+      shuffledWords[0],
+      shuffledWords[1],
+      shuffledWords[2]
     ]
   }, [])
 
@@ -57,16 +79,18 @@ export default function SpellingGame() {
     return lastPlayedDate === today
   }, [])
 
-  // Save score to localStorage
+  // Save score to localStorage with a specific score
   const saveScore = useCallback((scoreToSave: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', scoreToSave.toString())
+    console.log(`Score saved: ${scoreToSave}`) // Debugging Line
   }, [])
 
   // Load score from localStorage
   const loadScore = useCallback(() => {
     const storedScore = localStorage.getItem('lastScore')
+    console.log(`Loaded Score: ${storedScore}`) // Debugging Line
     if (storedScore) {
       setScore(parseInt(storedScore, 10))
     }
@@ -143,21 +167,32 @@ export default function SpellingGame() {
       const { data, error } = await supabase
         .from('audio_files')
         .select('*')
-      
+        .order('id', { ascending: true }) // Ensure consistent order
+
       if (error) {
         console.error('Error fetching words:', error)
         toast({ 
           description: 'Failed to load words. Please refresh.',
           variant: "destructive"
         })
+        setIsLoading(false)
         return
       }
 
       if (data) {
         const validWords = data.filter(word => word.word && word.definition && word.audio_url)
-        const shuffled = shuffleArray([...validWords])
-        const todaysWords = getTodayWords(shuffled)
+        if (validWords.length < 3) {
+          console.error('Not enough valid words in the database.')
+          toast({ 
+            description: 'Insufficient words in the database.',
+            variant: "destructive"
+          })
+          setIsLoading(false)
+          return
+        }
+        const todaysWords = getTodayWords(validWords)
         setSelectedWords(todaysWords)
+        console.log(`Selected Words for Today: ${todaysWords.map(w => w.word).join(', ')}`) // Debugging Line
       }
       setIsLoading(false)
     }
@@ -203,25 +238,6 @@ export default function SpellingGame() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [gameState, handleSubmit])
-
-  // Function to shuffle an array
-  const shuffleArray = <T,>(array: T[]): T[] => {
-    let currentIndex = array.length
-    let randomIndex: number
-    const newArray = [...array]
-
-    while (currentIndex !== 0) {
-      randomIndex = Math.floor(Math.random() * currentIndex)
-      currentIndex--
-      
-      [newArray[currentIndex], newArray[randomIndex]] = [
-        newArray[randomIndex],
-        newArray[currentIndex]
-      ]
-    }
-
-    return newArray
-  }
 
   // Function to start the game
   const startGame = () => {
