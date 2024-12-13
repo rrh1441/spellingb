@@ -6,7 +6,8 @@ const useIsIpad = (): boolean => {
   const [isIpad, setIsIpad] = useState(false)
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+    const userAgent = navigator.userAgent || navigator.vendor || ''
+
     // Check for iPad
     const iPad = /iPad/.test(userAgent) || (
       /Macintosh/.test(userAgent) &&
