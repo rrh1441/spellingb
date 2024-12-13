@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
-import useIsIpad from '@/hooks/useIsIpad' // Correct import using alias
+import useIsIpad from '@/hooks/useIsIpad' // Detect if device is iPad
 
 interface Word {
   id: number
@@ -52,10 +52,9 @@ export default function SpellingGame() {
   const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  // Use the custom hook to detect if the device is an iPad
   const isIpad = useIsIpad()
+  const [showIpadKeyboard, setShowIpadKeyboard] = useState(false)
 
   // Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
@@ -103,7 +102,7 @@ export default function SpellingGame() {
     return lastPlayedDate === today
   }, [])
 
-  // Save game data to localStorage with specific values
+  // Save game data to localStorage
   const saveGameData = useCallback((finalScore: number, correctWords: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
@@ -144,14 +143,14 @@ export default function SpellingGame() {
     }
   }, [])
 
-  // Function to handle game end
+  // Handle game end
   const handleGameEnd = useCallback(() => {
     setScore(prev => prev + timeLeft) // Add time bonus to the score
     setGameState('finished')
-    saveGameData(score + timeLeft, correctWordCount, timeLeft) // Save all game data
+    saveGameData(score + timeLeft, correctWordCount, timeLeft)
   }, [timeLeft, score, correctWordCount, saveGameData])
 
-  // Function to handle user submission
+  // Handle submission
   const handleSubmit = useCallback(() => {
     if (currentWordIndex >= selectedWords.length) return
 
@@ -169,8 +168,6 @@ export default function SpellingGame() {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
 
-      if (isIpad && inputRef.current) inputRef.current.focus()
-
       setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.src = selectedWords[nextIndex].audio_url
@@ -183,9 +180,9 @@ export default function SpellingGame() {
     } else {
       handleGameEnd()
     }
-  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput, isIpad])
+  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
 
-  // Function to fetch words from Supabase
+  // Fetch words
   useEffect(() => {
     const fetchWords = async () => {
       setIsLoading(true)
@@ -225,7 +222,7 @@ export default function SpellingGame() {
     fetchWords()
   }, [getTodayWords])
 
-  // Check if user has played today and load game data if so
+  // Check if user played today
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
@@ -237,7 +234,7 @@ export default function SpellingGame() {
     }
   }, [hasUserPlayedToday, loadGameData])
 
-  // Timer Countdown
+  // Timer
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (gameState === 'playing' && timeLeft > 0) {
@@ -248,10 +245,10 @@ export default function SpellingGame() {
     return () => clearTimeout(timer)
   }, [timeLeft, gameState, handleGameEnd])
 
-  // Handling Keyboard Inputs
+  // Keyboard events from physical keyboard (desktop)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState === 'playing') {
+      if (gameState === 'playing' && !isIpad) {
         if (e.key === 'Backspace') {
           setUserInput(prev => prev.slice(0, -1))
         } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
@@ -264,9 +261,9 @@ export default function SpellingGame() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [gameState, handleSubmit])
+  }, [gameState, handleSubmit, isIpad])
 
-  // Function to start the game
+  // Start game
   const startGame = () => {
     if (hasPlayedToday) {
       toast({
@@ -283,10 +280,8 @@ export default function SpellingGame() {
     setCorrectWordCount(0)
     setCurrentWordIndex(0)
 
+    // Play initial audio
     setTimeout(() => {
-      if (isIpad && inputRef.current) {
-        inputRef.current.focus()
-      }
       if (audioRef.current && selectedWords[0]) {
         audioRef.current.src = selectedWords[0].audio_url
         audioRef.current.load()
@@ -297,7 +292,7 @@ export default function SpellingGame() {
     }, 500)
   }
 
-  // Function to play audio pronunciation
+  // Play audio
   const playAudio = () => {
     const currentWord = selectedWords[currentWordIndex]
     if (!currentWord?.audio_url || !audioRef.current) return
@@ -313,7 +308,7 @@ export default function SpellingGame() {
     })
   }
 
-  // Function to handle key presses from the on-screen keyboard
+  // Handle on-screen keyboard presses
   const handleKeyPress = (key: string) => {
     if (key === 'backspace') {
       setUserInput(prev => prev.slice(0, -1))
@@ -324,7 +319,7 @@ export default function SpellingGame() {
     }
   }
 
-  // Function to share results
+  // Share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that? #SpellingBee`
 
@@ -376,7 +371,7 @@ export default function SpellingGame() {
                 onClick={startGame}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
                 size="lg"
-                disabled={hasPlayedToday}
+                disabled={hasPlayedToday} 
               >
                 <Play className="mr-2 h-5 w-5" /> Start Game
               </Button>
@@ -432,33 +427,75 @@ export default function SpellingGame() {
                 </p>
               </div>
 
-              {/* Hidden Input for Accessibility */}
-              <input
-                ref={inputRef}
-                type="text"
-                className="absolute opacity-0 w-0 h-0 border-none outline-none"
-                value={userInput}
-                readOnly={!isIpad}
-                onChange={(e) => {
-                  if (isIpad) {
-                    setUserInput(e.target.value)
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleSubmit()
-                  }
-                }}
-              />
+              {/* Phone On-Screen Keyboard (small screens) */}
+              {!isIpad && (
+                <div className="md:hidden">
+                  <div className="space-y-4">
+                    {[
+                      ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+                      ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+                      ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'del']
+                    ].map((row, rowIndex) => (
+                      <div key={rowIndex} className="flex justify-center space-x-1">
+                        {row.map(key => {
+                          if (key === 'del') {
+                            return (
+                              <Button
+                                key={key}
+                                onClick={() => handleKeyPress('backspace')}
+                                className="w-12 h-11 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md flex items-center justify-center"
+                                aria-label="Delete"
+                              >
+                                DEL
+                              </Button>
+                            )
+                          }
+                          return (
+                            <Button
+                              key={key}
+                              onClick={() => handleKeyPress(key)}
+                              className="w-8 h-11 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
+                              aria-label={key.toUpperCase()}
+                            >
+                              {key.toUpperCase()}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    ))}
+                    {/* Submit Button on Mobile */}
+                    <div className="flex justify-center space-x-1">
+                      <Button
+                        onClick={() => handleKeyPress('submit')}
+                        className="w-24 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xl font-semibold"
+                        aria-label="Enter"
+                      >
+                        Enter
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Improved iOS-like Keyboard */}
-              <div className="md:hidden">
+              {/* iPad-specific handling */}
+              {isIpad && !showIpadKeyboard && (
+                <div className="flex justify-center mt-4">
+                  <Button
+                    onClick={() => setShowIpadKeyboard(true)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2"
+                  >
+                    Get Keyboard
+                  </Button>
+                </div>
+              )}
+
+              {/* iPad On-Screen Keyboard (shown after "Get Keyboard") */}
+              {isIpad && showIpadKeyboard && (
                 <div className="space-y-4">
                   {[
-                    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-                    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-                    ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'del']
+                    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+                    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+                    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'del']
                   ].map((row, rowIndex) => (
                     <div key={rowIndex} className="flex justify-center space-x-1">
                       {row.map(key => {
@@ -477,17 +514,17 @@ export default function SpellingGame() {
                         return (
                           <Button
                             key={key}
-                            onClick={() => handleKeyPress(key)}
+                            onClick={() => handleKeyPress(key.toLowerCase())}
                             className="w-8 h-11 text-lg bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md"
-                            aria-label={key.toUpperCase()}
+                            aria-label={key}
                           >
-                            {key.toUpperCase()}
+                            {key}
                           </Button>
                         )
                       })}
                     </div>
                   ))}
-                  {/* Submit Button on Mobile */}
+                  {/* Submit Button on iPad */}
                   <div className="flex justify-center space-x-1">
                     <Button
                       onClick={() => handleKeyPress('submit')}
@@ -498,28 +535,16 @@ export default function SpellingGame() {
                     </Button>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Desktop Submit Button */}
-              <div className="hidden md:block">
-                <Button
-                  onClick={handleSubmit}
-                  className="w-full px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold"
-                >
-                  Submit
-                </Button>
-              </div>
-
-              {/* "Get Keyboard" button (only on iPad) */}
-              {isIpad && (
-                <div className="flex justify-center mt-4">
+              {!isIpad && (
+                <div className="hidden md:block">
                   <Button
-                    onClick={() => {
-                      if (inputRef.current) inputRef.current.focus()
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2"
+                    onClick={handleSubmit}
+                    className="w-full px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg font-semibold"
                   >
-                    Get Keyboard
+                    Submit
                   </Button>
                 </div>
               )}
