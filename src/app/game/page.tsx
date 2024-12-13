@@ -149,7 +149,6 @@ export default function SpellingGame() {
     setScore(prev => prev + timeLeft) // Add time bonus to the score
     setGameState('finished')
     saveGameData(score + timeLeft, correctWordCount, timeLeft) // Save all game data
-    // Removed the "Time's up" toast notifications
   }, [timeLeft, score, correctWordCount, saveGameData])
 
   // Function to handle user submission
@@ -160,11 +159,8 @@ export default function SpellingGame() {
     const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
 
     if (isCorrect) {
-      setCorrectWordCount(prev => prev + 1) // Update state for UI
-      setScore(prev => prev + 50) // Update score immediately
-      // Removed the "Correct!" toast
-    } else {
-      // Removed the "Incorrect" toast
+      setCorrectWordCount(prev => prev + 1)
+      setScore(prev => prev + 50)
     }
 
     // Move to next word
@@ -173,7 +169,7 @@ export default function SpellingGame() {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
 
-      if (isIpad && inputRef.current) inputRef.current.focus() // Only focus on iPads
+      if (isIpad && inputRef.current) inputRef.current.focus()
 
       setTimeout(() => {
         if (audioRef.current) {
@@ -185,7 +181,6 @@ export default function SpellingGame() {
         }
       }, 500)
     } else {
-      // End game if no more words
       handleGameEnd()
     }
   }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput, isIpad])
@@ -222,7 +217,7 @@ export default function SpellingGame() {
         }
         const todaysWords = getTodayWords(validWords)
         setSelectedWords(todaysWords)
-        console.log(`Selected Words for Today: ${todaysWords.map(w => w.word).join(', ')}`) // Debugging Line
+        console.log(`Selected Words for Today: ${todaysWords.map(w => w.word).join(', ')}`)
       }
       setIsLoading(false)
     }
@@ -236,7 +231,6 @@ export default function SpellingGame() {
     setHasPlayedToday(played)
     if (played) {
       loadGameData()
-      // Delay setting gameState to ensure all data is loaded
       setTimeout(() => {
         setGameState('finished')
       }, 100)
@@ -289,7 +283,6 @@ export default function SpellingGame() {
     setCorrectWordCount(0)
     setCurrentWordIndex(0)
 
-    // Focus the hidden input to trigger the virtual keyboard only on iPads
     setTimeout(() => {
       if (isIpad && inputRef.current) {
         inputRef.current.focus()
@@ -383,7 +376,7 @@ export default function SpellingGame() {
                 onClick={startGame}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
                 size="lg"
-                disabled={hasPlayedToday} // Disable if already played
+                disabled={hasPlayedToday}
               >
                 <Play className="mr-2 h-5 w-5" /> Start Game
               </Button>
@@ -445,7 +438,7 @@ export default function SpellingGame() {
                 type="text"
                 className="absolute opacity-0 w-0 h-0 border-none outline-none"
                 value={userInput}
-                readOnly={!isIpad} // Set readOnly based on device
+                readOnly={!isIpad}
                 onChange={(e) => {
                   if (isIpad) {
                     setUserInput(e.target.value)
@@ -461,13 +454,13 @@ export default function SpellingGame() {
 
               {/* Improved iOS-like Keyboard */}
               <div className="md:hidden">
-                <div className="space-y-4"> {/* Increased vertical spacing between rows */}
+                <div className="space-y-4">
                   {[
                     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
                     ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
                     ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'del']
                   ].map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex justify-center space-x-1"> {/* Increased horizontal spacing */}
+                    <div key={rowIndex} className="flex justify-center space-x-1">
                       {row.map(key => {
                         if (key === 'del') {
                           return (
@@ -516,6 +509,20 @@ export default function SpellingGame() {
                   Submit
                 </Button>
               </div>
+
+              {/* "Get Keyboard" button (only on iPad) */}
+              {isIpad && (
+                <div className="flex justify-center mt-4">
+                  <Button
+                    onClick={() => {
+                      if (inputRef.current) inputRef.current.focus()
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2"
+                  >
+                    Get Keyboard
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -554,7 +561,6 @@ export default function SpellingGame() {
                           </code>
                         </div>
                       </div>
-                      {/* Updated Message */}
                       <p className="text-center text-2xl font-bold text-gray-800 mt-4">
                         Play again tomorrow!
                       </p>
@@ -565,7 +571,6 @@ export default function SpellingGame() {
                       <div className="border border-red-200 p-2 rounded bg-red-50">
                         <code className="text-xl font-mono text-red-500">0 points</code>
                       </div>
-                      {/* Updated Message */}
                       <p className="text-center text-2xl font-bold text-gray-800 mt-4">
                         Better luck next time! Play again tomorrow!
                       </p>
