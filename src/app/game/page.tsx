@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { toast } from "@/components/ui/use-toast" // Assuming a stable toast function
+import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 import useIsIpad from '@/hooks/useIsIpad'
 
@@ -68,7 +68,37 @@ export default function SpellingGame() {
       localStorage.removeItem('lastCorrectWordCount')
       localStorage.removeItem('lastTimeLeft')
     }
-  }, [])
+  }, [toast]) 
+  // The warning about toast in deps might reappear. Since toast is stable, we can safely remove it:
+  // Just remove [toast] -> no toast in deps:
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableLoadGameDataNoToastDeps = useCallback(() => {
+    try {
+      const storedScore = localStorage.getItem('lastScore')
+      const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
+      const storedTimeLeft = localStorage.getItem('lastTimeLeft')
+      console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+
+      if (storedScore) setScore(parseInt(storedScore, 10))
+      if (storedCorrectWords) {
+        const correctWords = parseInt(storedCorrectWords, 10)
+        setCorrectWordCount(correctWords)
+      }
+      if (storedTimeLeft) {
+        setTimeLeft(parseInt(storedTimeLeft, 10))
+      }
+    } catch (error) {
+      console.error('Error loading game data:', error)
+      toast({
+        description: 'Failed to load previous game data. Starting fresh.',
+        variant: "destructive"
+      })
+      localStorage.removeItem('lastPlayedDate')
+      localStorage.removeItem('lastScore')
+      localStorage.removeItem('lastCorrectWordCount')
+      localStorage.removeItem('lastTimeLeft')
+    }
+  }, []) // Removed toast from deps
 
   const hasUserPlayedToday = useCallback((): boolean => {
     const lastPlayedDate = localStorage.getItem('lastPlayedDate')
@@ -89,7 +119,7 @@ export default function SpellingGame() {
     const fetchWords = async () => {
       setIsLoading(true)
       const { data, error } = await supabase
-        .from('audio_files') // removed generics here
+        .from<'audio_files', Word>('audio_files') // Provide both table name and row type
         .select('*')
         .order('id', { ascending: true })
 
@@ -104,8 +134,7 @@ export default function SpellingGame() {
       }
 
       if (data) {
-        // Cast data to Word[]
-        const validWords = (data as Word[]).filter((w: Word) => w.word && w.definition && w.audio_url)
+        const validWords = data.filter((w: Word) => w.word && w.definition && w.audio_url)
         if (validWords.length < 3) {
           console.error('Not enough valid words in the database.')
           toast({
@@ -120,18 +149,18 @@ export default function SpellingGame() {
       setIsLoading(false)
     }
     fetchWords()
-  }, []) // no toast dependency needed
+  }, []) // no toast in deps
 
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
-      stableLoadGameData()
+      stableLoadGameDataNoToastDeps()
       setTimeout(() => {
         setGameState('finished')
       }, 100)
     }
-  }, [hasUserPlayedToday, stableLoadGameData])
+  }, [hasUserPlayedToday, stableLoadGameDataNoToastDeps]) // no toast here
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -199,6 +228,17 @@ export default function SpellingGame() {
       audioRef.current.play().catch(error => {
         console.error('Failed to play audio:', error)
       })
+    }
+  }
+
+  // Reintroduce handleKeyPress for a custom on-screen keyboard on non-iPads
+  const handleKeyPress = (key: string) => {
+    if (key === 'backspace') {
+      setUserInput(prev => prev.slice(0, -1))
+    } else if (key === 'submit') {
+      handleSubmit()
+    } else {
+      setUserInput(prev => prev + key)
     }
   }
 
@@ -313,7 +353,20 @@ export default function SpellingGame() {
                     }
                   }}
                 />
-                {/* If you have a custom on-screen keyboard for non-iPad, integrate here */}
+                {/* On-screen keyboard for non-iPads to utilize handleKeyPress */}
+                <div style={{display:'flex',flexWrap:'wrap',gap:'0.5rem',justifyContent:'center'}}>
+                  {['q','w','e','r','t','y','u','i','o','p'].map(k => (
+                    <button key={k} onClick={() => handleKeyPress(k)} style={{width:'2rem',height:'2rem',backgroundColor:'#E5E7EB',borderRadius:'0.25rem'}}>{k}</button>
+                  ))}
+                  {['a','s','d','f','g','h','j','k','l'].map(k => (
+                    <button key={k} onClick={() => handleKeyPress(k)} style={{width:'2rem',height:'2rem',backgroundColor:'#E5E7EB',borderRadius:'0.25rem'}}>{k}</button>
+                  ))}
+                  {['z','x','c','v','b','n','m'].map(k => (
+                    <button key={k} onClick={() => handleKeyPress(k)} style={{width:'2rem',height:'2rem',backgroundColor:'#E5E7EB',borderRadius:'0.25rem'}}>{k}</button>
+                  ))}
+                  <button onClick={() => handleKeyPress('backspace')} style={{padding:'0.5rem 1rem',backgroundColor:'#D1D5DB',borderRadius:'0.25rem'}}>DEL</button>
+                  <button onClick={() => handleKeyPress('submit')} style={{padding:'0.5rem 1rem',backgroundColor:'#3B82F6',color:'#fff',borderRadius:'0.25rem'}}>Enter</button>
+                </div>
               </>
             )}
 
