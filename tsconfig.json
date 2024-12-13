@@ -41,4 +41,4 @@
   /* Specify the files or directories to exclude from the project */
   "exclude": ["node_modules"]
 }
-}
+
