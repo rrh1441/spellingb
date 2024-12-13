@@ -156,12 +156,12 @@ export default function SpellingGame() {
     saveGameData(finalScore, correctWordCountRef.current, timeLeft) // Save all game data
     if (correctWordCountRef.current > 0) {
       toast({
-        description: `Time's up! You scored ${finalScore} points.`,
+        description: `Time&apos;s up! You scored ${finalScore} points.`,
         variant: "success"
       })
     } else {
       toast({
-        description: `Time's up! You scored 0 points.`,
+        description: `Time&apos;s up! You scored 0 points.`,
         variant: "destructive"
       })
     }
@@ -343,6 +343,8 @@ export default function SpellingGame() {
   const handleKeyPress = (key: string) => {
     if (key === 'backspace') {
       setUserInput(prev => prev.slice(0, -1))
+    } else if (key === 'submit') {
+      handleSubmit()
     } else {
       setUserInput(prev => prev + key)
     }
@@ -394,7 +396,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won't save you!
+                Autocorrect won&apos;t save you!
               </p>
               <Button
                 onClick={startGame}
@@ -514,7 +516,7 @@ export default function SpellingGame() {
                   {/* Submit Button on Mobile */}
                   <div className="flex justify-center space-x-1">
                     <Button
-                      onClick={handleSubmit}
+                      onClick={() => handleKeyPress('submit')}
                       className="w-24 h-11 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center justify-center text-xl font-semibold"
                       aria-label="Enter"
                     >
