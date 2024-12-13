@@ -60,10 +60,28 @@ export default function SpellingGame() {
   // Use the custom hook to detect if the device is an iPad
   const isIpad = useIsIpad()
 
-  // Helper function to get today's date in YYYY-MM-DD format (UTC)
+  // Updated Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
     const today = new Date()
-    return today.toISOString().split('T')[0] // Ensures UTC date consistency
+    const options = {
+      timeZone: 'America/Los_Angeles', // Pacific Time Zone
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }
+    const formatter = new Intl.DateTimeFormat('en-CA', options) // 'en-CA' format is 'YYYY-MM-DD'
+    const dateParts = formatter.formatToParts(today)
+    
+    const year = dateParts.find(part => part.type === 'year')?.value
+    const month = dateParts.find(part => part.type === 'month')?.value
+    const day = dateParts.find(part => part.type === 'day')?.value
+
+    if (year && month && day) {
+      return `${year}-${month}-${day}`
+    }
+
+    // Fallback in case of unexpected format
+    return today.toISOString().split('T')[0]
   }
 
   // Function to select three words based on the current date
