@@ -1,4 +1,4 @@
-=// src/app/game/page.tsx
+// src/app/game/page.tsx
 
 "use client"
 
