@@ -57,14 +57,14 @@ export default function SpellingGame() {
   // Use the custom hook to detect if the device is an iPad
   const isIpad = useIsIpad()
 
-  // Updated Helper function to get today's date in Pacific Time
+  // Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
     const today = new Date()
     const options: Intl.DateTimeFormatOptions = {
       timeZone: 'America/Los_Angeles', // Pacific Time Zone
-      year: 'numeric',                 // Correct literal type
-      month: '2-digit',                // Correct literal type
-      day: '2-digit',                  // Correct literal type
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     }
     const formatter = new Intl.DateTimeFormat('en-CA', options) // 'en-CA' format is 'YYYY-MM-DD'
     const dateParts = formatter.formatToParts(today)
@@ -162,12 +162,9 @@ export default function SpellingGame() {
     if (isCorrect) {
       setCorrectWordCount(prev => prev + 1) // Update state for UI
       setScore(prev => prev + 50) // Update score immediately
-      toast({ description: 'Correct! +50 points.' })
+      // Removed the "Correct!" toast
     } else {
-      toast({
-        description: `Incorrect. The word was "${currentWord.word}"`,
-        variant: "destructive"
-      })
+      // Removed the "Incorrect" toast
     }
 
     // Move to next word
