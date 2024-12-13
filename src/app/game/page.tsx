@@ -1,3 +1,5 @@
+// src/app/game/page.tsx
+
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -6,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Play, Share2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
-import useIsIpad from '@/hooks/useIsIpad' // Import the custom hook
+import useIsIpad from '@/hooks/useIsIpad' // Correct import using alias
 
 interface Word {
   id: number
@@ -288,7 +290,7 @@ export default function SpellingGame() {
     correctWordCountRef.current = 0 // Reset the ref
     setCurrentWordIndex(0)
 
-    // Focus the hidden input to trigger the virtual keyboard on iPads
+    // Focus the hidden input to trigger the virtual keyboard only on iPads
     setTimeout(() => {
       if (isIpad && inputRef.current) {
         inputRef.current.focus()

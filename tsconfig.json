@@ -1,27 +1,44 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
+    /* Basic Options */
+    "target": "ES2017",                                  /* Specify ECMAScript target version */
+    "lib": ["dom", "dom.iterable", "esnext"],            /* Specify library files to be included */
+    "allowJs": true,                                     /* Allow JavaScript files to be compiled */
+    "skipLibCheck": true,                                /* Skip type checking of declaration files */
+    "strict": true,                                      /* Enable all strict type-checking options */
+    "noEmit": true,                                      /* Do not emit outputs */
+    "esModuleInterop": true,                             /* Enable esModuleInterop for compatibility */
+    
+    /* Module Resolution Options */
+    "module": "esnext",                                   /* Specify module code generation */
+    "moduleResolution": "node",                          /* Specify module resolution strategy */
+    "resolveJsonModule": true,                           /* Allow importing JSON modules */
+    "isolatedModules": true,                             /* Ensure that each file can be safely transpiled without relying on other imports */
+    
+    /* JSX Options */
+    "jsx": "preserve",                                    /* Preserve JSX as part of the output to be further processed by other transforms */
+    
+    /* Advanced Options */
+    "incremental": true,                                  /* Enable incremental compilation for faster builds */
+    
+    /* Path Mapping */
+    "baseUrl": "src",                                     /* Base directory to resolve non-relative module names */
+    "paths": {
+      "@/*": ["*"]                                        /* Map @/alias to the src directory */
+    },
+    
+    /* Plugins */
     "plugins": [
       {
-        "name": "next"
+        "name": "next"                                     /* Integrate Next.js specific TypeScript settings */
       }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  
+  /* Specify the files or directories to include in the project */
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  
+  /* Specify the files or directories to exclude from the project */
   "exclude": ["node_modules"]
+}
 }
