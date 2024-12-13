@@ -63,11 +63,11 @@ export default function SpellingGame() {
   // Updated Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
     const today = new Date()
-    const options = {
+    const options: Intl.DateTimeFormatOptions = {
       timeZone: 'America/Los_Angeles', // Pacific Time Zone
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+      year: 'numeric',                 // Correct literal type
+      month: '2-digit',                // Correct literal type
+      day: '2-digit',                  // Correct literal type
     }
     const formatter = new Intl.DateTimeFormat('en-CA', options) // 'en-CA' format is 'YYYY-MM-DD'
     const dateParts = formatter.formatToParts(today)
@@ -394,7 +394,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won&apos;t save you!
+                Autocorrect won't save you!
               </p>
               <Button
                 onClick={startGame}
