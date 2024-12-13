@@ -1,5 +1,4 @@
 // src/hooks/useIsIpad.tsx
-
 import { useState, useEffect } from 'react'
 
 const useIsIpad = (): boolean => {
@@ -7,13 +6,13 @@ const useIsIpad = (): boolean => {
 
   useEffect(() => {
     const userAgent = navigator.userAgent || navigator.vendor || ''
-
-    // Check for iPad
+    // Detect iPad or iPadOS
     const iPad = /iPad/.test(userAgent) || (
       /Macintosh/.test(userAgent) &&
       'ontouchend' in document
     )
     setIsIpad(iPad)
+    console.log(`Device is iPad: ${iPad}`)
   }, [])
 
   return isIpad
