@@ -5,7 +5,7 @@ const useIsIpad = (): boolean => {
   const [isIpad, setIsIpad] = useState(false)
 
   useEffect(() => {
-    const ua = navigator.userAgent || navigator.vendor || (window as any).opera
+    const ua = navigator.userAgent || navigator.vendor || window.opera?.toString() || ''
 
     // Detect iPadOS 13+ which reports as Mac
     const isIpadOS = /Macintosh/.test(ua) && 'ontouchend' in document
@@ -20,4 +20,3 @@ const useIsIpad = (): boolean => {
 }
 
 export default useIsIpad
-
