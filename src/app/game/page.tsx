@@ -162,9 +162,9 @@ export default function SpellingGame() {
     if (isCorrect) {
       setCorrectWordCount(prev => prev + 1) // Update state for UI
       setScore(prev => prev + 50) // Update score immediately
-      // Removed the "Correct!" toast
+      // Toasts removed
     } else {
-      // Removed the "Incorrect" toast
+      // Toasts removed
     }
 
     // Move to next word
@@ -173,7 +173,9 @@ export default function SpellingGame() {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
 
-      if (isIpad && inputRef.current) inputRef.current.focus() // Only focus on iPads
+      if (isIpad && inputRef.current) {
+        inputRef.current.focus()
+      }
 
       setTimeout(() => {
         if (audioRef.current) {
@@ -289,19 +291,18 @@ export default function SpellingGame() {
     setCorrectWordCount(0)
     setCurrentWordIndex(0)
 
-    // Focus the hidden input to trigger the virtual keyboard only on iPads
-    setTimeout(() => {
-      if (isIpad && inputRef.current) {
-        inputRef.current.focus()
-      }
-      if (audioRef.current && selectedWords[0]) {
-        audioRef.current.src = selectedWords[0].audio_url
-        audioRef.current.load()
-        audioRef.current.play().catch(error => {
-          console.error('Failed to play audio:', error)
-        })
-      }
-    }, 500)
+    // Immediately focus the input if on iPad
+    if (isIpad && inputRef.current) {
+      inputRef.current.focus()
+    }
+
+    if (audioRef.current && selectedWords[0]) {
+      audioRef.current.src = selectedWords[0].audio_url
+      audioRef.current.load()
+      audioRef.current.play().catch(error => {
+        console.error('Failed to play audio:', error)
+      })
+    }
   }
 
   // Function to play audio pronunciation
@@ -443,9 +444,9 @@ export default function SpellingGame() {
               <input
                 ref={inputRef}
                 type="text"
-                className="absolute opacity-0 w-0 h-0 border-none outline-none"
+                className="absolute left-full top-full w-1 h-1"
                 value={userInput}
-                readOnly={!isIpad} // Set readOnly based on device
+                readOnly={!isIpad} // Editable only on iPads
                 onChange={(e) => {
                   if (isIpad) {
                     setUserInput(e.target.value)

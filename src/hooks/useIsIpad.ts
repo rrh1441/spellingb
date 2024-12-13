@@ -1,19 +1,18 @@
-// src/hooks/useIsIpad.ts
+// src/hooks/useIsIpad.tsx
+
 import { useState, useEffect } from 'react'
 
 const useIsIpad = (): boolean => {
   const [isIpad, setIsIpad] = useState(false)
 
   useEffect(() => {
-    const ua = navigator.userAgent || navigator.vendor || ''
-
-    // Detect iPadOS 13+ which reports as Mac
-    const isIpadOS = /Macintosh/.test(ua) && 'ontouchend' in document
-
-    // Traditional iPad detection
-    const isiPad = /iPad/.test(ua) || isIpadOS
-
-    setIsIpad(isiPad)
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera
+    // Check for iPad
+    const iPad = /iPad/.test(userAgent) || (
+      /Macintosh/.test(userAgent) &&
+      'ontouchend' in document
+    )
+    setIsIpad(iPad)
   }, [])
 
   return isIpad
