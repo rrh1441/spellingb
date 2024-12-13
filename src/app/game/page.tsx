@@ -1,5 +1,3 @@
-// src/app/game/page.tsx
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -42,14 +40,8 @@ export default function SpellingGame() {
     localStorage.setItem('lastCorrectWordCount', correctWords.toString())
     localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
     console.log(`Game Data Saved: Score=${finalScore}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}`)
-  }, []) // Removed toast from deps - no toast needed as dep
+  }, [])
 
-  // If loadGameData is never used, remove it entirely:
-  // const loadGameData = useCallback(() => {
-  //   ...
-  // }, [toast]) // Remove if not used
-
-  // Instead if you had stableLoadGameData before, just keep one load function without toast in deps:
   const stableLoadGameData = useCallback(() => {
     try {
       const storedScore = localStorage.getItem('lastScore')
@@ -76,7 +68,7 @@ export default function SpellingGame() {
       localStorage.removeItem('lastCorrectWordCount')
       localStorage.removeItem('lastTimeLeft')
     }
-  }, []) // No toast dependency here
+  }, [])
 
   const hasUserPlayedToday = useCallback((): boolean => {
     const lastPlayedDate = localStorage.getItem('lastPlayedDate')
@@ -91,14 +83,13 @@ export default function SpellingGame() {
       return finalScore
     })
     setGameState('finished')
-  }, [timeLeft, correctWordCount, saveGameData]) // handleGameEnd now correctly includes all its deps
+  }, [timeLeft, correctWordCount, saveGameData])
 
-  // Fetch words once without toast as a dep:
   useEffect(() => {
     const fetchWords = async () => {
       setIsLoading(true)
       const { data, error } = await supabase
-        .from<Word>('audio_files')
+        .from('audio_files') // removed generics here
         .select('*')
         .order('id', { ascending: true })
 
@@ -113,7 +104,8 @@ export default function SpellingGame() {
       }
 
       if (data) {
-        const validWords = data.filter((w: Word) => w.word && w.definition && w.audio_url)
+        // Cast data to Word[]
+        const validWords = (data as Word[]).filter((w: Word) => w.word && w.definition && w.audio_url)
         if (validWords.length < 3) {
           console.error('Not enough valid words in the database.')
           toast({
@@ -128,7 +120,7 @@ export default function SpellingGame() {
       setIsLoading(false)
     }
     fetchWords()
-  }, []) // no toast in deps
+  }, []) // no toast dependency needed
 
   useEffect(() => {
     const played = hasUserPlayedToday()
@@ -139,7 +131,7 @@ export default function SpellingGame() {
         setGameState('finished')
       }, 100)
     }
-  }, [hasUserPlayedToday, stableLoadGameData]) // no toast here
+  }, [hasUserPlayedToday, stableLoadGameData])
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -149,7 +141,7 @@ export default function SpellingGame() {
       handleGameEnd()
     }
     return () => clearTimeout(timer)
-  }, [gameState, timeLeft, handleGameEnd]) // includes handleGameEnd properly
+  }, [gameState, timeLeft, handleGameEnd])
 
   const handleSubmit = () => {
     if (currentWordIndex >= selectedWords.length) return
