@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Play, Share2 } from 'lucide-react'
+import { Volume2, Play, Share2, X } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 import useIsIpad from '@/hooks/useIsIpad' // Detect if device is iPad
@@ -51,10 +51,12 @@ export default function SpellingGame() {
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
+  const [attempts, setAttempts] = useState<string[]>([]) // Store user's attempts for each word
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const isIpad = useIsIpad()
   const [showIpadKeyboard, setShowIpadKeyboard] = useState(false)
+  const [showAnswersModal, setShowAnswersModal] = useState(false)
 
   // Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
@@ -155,7 +157,15 @@ export default function SpellingGame() {
     if (currentWordIndex >= selectedWords.length) return
 
     const currentWord = selectedWords[currentWordIndex]
-    const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
+    const userAttempt = userInput.trim().toLowerCase()
+    const isCorrect = userAttempt === currentWord.word.trim().toLowerCase()
+
+    // Record the attempt
+    setAttempts(prev => {
+      const newAttempts = [...prev]
+      newAttempts[currentWordIndex] = userInput.trim()
+      return newAttempts
+    })
 
     if (isCorrect) {
       setCorrectWordCount(prev => prev + 1)
@@ -214,6 +224,7 @@ export default function SpellingGame() {
         }
         const todaysWords = getTodayWords(validWords)
         setSelectedWords(todaysWords)
+        setAttempts(Array(todaysWords.length).fill(''))
         console.log(`Selected Words for Today: ${todaysWords.map(w => w.word).join(', ')}`)
       }
       setIsLoading(false)
@@ -354,8 +365,8 @@ export default function SpellingGame() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2">
-      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2 relative">
+      <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl z-10">
         <CardContent className="p-4">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">Spelling B-</h1>
 
@@ -601,14 +612,17 @@ export default function SpellingGame() {
                       </p>
                     </div>
                   )}
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Definition of Last Word:</p>
-                    <p className="text-md text-gray-800">
-                      {selectedWords[selectedWords.length - 1].definition}
-                    </p>
-                  </div>
                 </div>
               </div>
+
+              {/* Button to show right answers popup */}
+              <Button
+                onClick={() => setShowAnswersModal(true)}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors mt-4"
+                size="lg"
+              >
+                Click for Right Answers
+              </Button>
 
               {/* Share Results */}
               <Button
@@ -622,6 +636,49 @@ export default function SpellingGame() {
           )}
         </CardContent>
       </Card>
+
+      {/* Answers Modal */}
+      {showAnswersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg relative">
+            <button
+              className="absolute top-3 right-3 text-gray-600 hover:text-gray-800"
+              onClick={() => setShowAnswersModal(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h2 className="text-2xl font-bold text-center mb-4">Your Attempts</h2>
+            <div className="space-y-3">
+              {selectedWords.map((word, i) => {
+                const attempt = attempts[i] || ''
+                const isCorrect = attempt.trim().toLowerCase() === word.word.trim().toLowerCase()
+                return (
+                  <div key={word.id} className="flex space-x-2 items-center">
+                    <div
+                      className={`flex-1 p-2 rounded border ${
+                        isCorrect ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                      }`}
+                    >
+                      <p
+                        className={`text-lg font-mono ${
+                          isCorrect ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
+                        {attempt || '(no attempt)'}
+                      </p>
+                    </div>
+                    <div
+                      className="flex-1 p-2 rounded border border-green-300 bg-green-50"
+                    >
+                      <p className="text-lg font-mono text-green-600">{word.word}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
