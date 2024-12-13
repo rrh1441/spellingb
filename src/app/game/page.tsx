@@ -1,4 +1,4 @@
-// src/app/game/page.tsx
+=// src/app/game/page.tsx
 
 "use client"
 
@@ -53,9 +53,6 @@ export default function SpellingGame() {
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  // Mutable reference to track correct words count
-  const correctWordCountRef = useRef<number>(0)
 
   // Use the custom hook to detect if the device is an iPad
   const isIpad = useIsIpad()
@@ -130,7 +127,6 @@ export default function SpellingGame() {
       if (storedCorrectWords) {
         const correctWords = parseInt(storedCorrectWords, 10)
         setCorrectWordCount(correctWords)
-        correctWordCountRef.current = correctWords // Sync ref
       }
       if (storedTimeLeft) {
         setTimeLeft(parseInt(storedTimeLeft, 10))
@@ -150,22 +146,11 @@ export default function SpellingGame() {
 
   // Function to handle game end
   const handleGameEnd = useCallback(() => {
-    const finalScore = correctWordCountRef.current * 50 + timeLeft // Compute based on correct words and time bonus
-    setScore(finalScore)
+    setScore(prev => prev + timeLeft) // Add time bonus to the score
     setGameState('finished')
-    saveGameData(finalScore, correctWordCountRef.current, timeLeft) // Save all game data
-    if (correctWordCountRef.current > 0) {
-      toast({
-        description: `Time&apos;s up! You scored ${finalScore} points.`,
-        variant: "success"
-      })
-    } else {
-      toast({
-        description: `Time&apos;s up! You scored 0 points.`,
-        variant: "destructive"
-      })
-    }
-  }, [timeLeft, saveGameData])
+    saveGameData(score + timeLeft, correctWordCount, timeLeft) // Save all game data
+    // Removed the "Time's up" toast notifications
+  }, [timeLeft, score, correctWordCount, saveGameData])
 
   // Function to handle user submission
   const handleSubmit = useCallback(() => {
@@ -175,8 +160,8 @@ export default function SpellingGame() {
     const isCorrect = userInput.trim().toLowerCase() === currentWord.word.trim().toLowerCase()
 
     if (isCorrect) {
-      correctWordCountRef.current += 1 // Update the ref immediately
       setCorrectWordCount(prev => prev + 1) // Update state for UI
+      setScore(prev => prev + 50) // Update score immediately
       toast({ description: 'Correct! +50 points.' })
     } else {
       toast({
@@ -305,7 +290,6 @@ export default function SpellingGame() {
     setUserInput('')
     setScore(0)
     setCorrectWordCount(0)
-    correctWordCountRef.current = 0 // Reset the ref
     setCurrentWordIndex(0)
 
     // Focus the hidden input to trigger the virtual keyboard only on iPads
