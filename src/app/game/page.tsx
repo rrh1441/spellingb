@@ -356,14 +356,6 @@ export default function SpellingGame() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Loading game...</p>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2 relative">
       <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl z-10">
@@ -622,6 +614,15 @@ export default function SpellingGame() {
                 size="lg"
               >
                 Click for Right Answers
+              </Button>
+
+              {/* "Keep us ad-free" button */}
+              <Button
+                onClick={() => window.open('https://trysimpleapps.gumroad.com/coffee', '_blank')}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors mt-4"
+                size="lg"
+              >
+                Keep us ad-free
               </Button>
 
               {/* Share Results */}
