@@ -47,7 +47,6 @@ export default function SpellingGame() {
   const [userInput, setUserInput] = useState('')
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
