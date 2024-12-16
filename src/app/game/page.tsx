@@ -56,6 +56,7 @@ export default function SpellingGame() {
   const isIpad = useIsIpad()
   const [showIpadKeyboard, setShowIpadKeyboard] = useState(false)
   const [showAnswersModal, setShowAnswersModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Helper function to get today's date in Pacific Time
   const getTodayDate = (): string => {
@@ -373,9 +374,9 @@ export default function SpellingGame() {
                 onClick={startGame}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
                 size="lg"
-                disabled={hasPlayedToday} 
+                disabled={hasPlayedToday || isLoading} 
               >
-                <Play className="mr-2 h-5 w-5" /> Start Game
+                <Play className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "Start Game"}
               </Button>
               {hasPlayedToday && (
                 <p className="text-center text-2xl font-bold text-gray-800 mt-4">
