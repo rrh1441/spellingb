@@ -336,7 +336,7 @@ export default function SpellingGame() {
 
   // Share results
   const shareResults = async () => {
-    const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that? #SpellingBee`
+    const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that?`
 
     if (navigator.share) {
       try {
