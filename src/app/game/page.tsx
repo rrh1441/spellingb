@@ -380,7 +380,7 @@ export default function SpellingGame() {
                 size="lg"
                 disabled={hasPlayedToday || isLoading} 
               >
-                <Play className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "Start Game"}
+                <Play className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "Start Game (Sound On)"}
               </Button>
               {hasPlayedToday && (
                 <p className="text-center text-2xl font-bold text-gray-800 mt-4">
