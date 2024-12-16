@@ -64,7 +64,7 @@ export default function SpellingGame() {
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
-  const [attempts, setAttempts] = useState<string[]>([]) // Store user's attempts for each word
+  const [attempts, setAttempts] = useState<string[]>([])
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const isIpad = useIsIpad()
@@ -83,11 +83,7 @@ export default function SpellingGame() {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
     const shuffledWords = deterministicShuffle(wordList, diffDays)
-    return [
-      shuffledWords[0],
-      shuffledWords[1],
-      shuffledWords[2]
-    ]
+    return [shuffledWords[0], shuffledWords[1], shuffledWords[2]]
   }, [])
 
   // Check if user played today based on LA date
