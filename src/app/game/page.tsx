@@ -9,6 +9,7 @@ import { Volume2, Play, Share2, X } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 import useIsIpad from '@/hooks/useIsIpad' // Detect if device is iPad
+import { zonedTimeToUtc } from 'date-fns-tz'
 
 interface Word {
   id: number
@@ -38,6 +39,19 @@ const deterministicShuffle = (array: Word[], seed: number): Word[] => {
   return shuffled
 }
 
+// Get today's date in 'YYYY-MM-DD' format according to Pacific Time
+const getTodayDate = (): string => {
+  const now = new Date()
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }
+  const formatter = new Intl.DateTimeFormat('en-CA', options) // 'YYYY-MM-DD'
+  return formatter.format(now)
+}
+
 export default function SpellingGame() {
   // Define the total game time in seconds
   const TOTAL_TIME = 60
@@ -58,38 +72,17 @@ export default function SpellingGame() {
   const [showAnswersModal, setShowAnswersModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Helper function to get today's date in Pacific Time
-  const getTodayDate = (): string => {
-    const today = new Date()
-    const options: Intl.DateTimeFormatOptions = {
-      timeZone: 'America/Los_Angeles', // Pacific Time Zone
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }
-    const formatter = new Intl.DateTimeFormat('en-CA', options) // 'en-CA' format is 'YYYY-MM-DD'
-    const dateParts = formatter.formatToParts(today)
-    
-    const year = dateParts.find(part => part.type === 'year')?.value
-    const month = dateParts.find(part => part.type === 'month')?.value
-    const day = dateParts.find(part => part.type === 'day')?.value
-
-    if (year && month && day) {
-      return `${year}-${month}-${day}`
-    }
-
-    // Fallback in case of unexpected format
-    return today.toISOString().split('T')[0]
-  }
-
-  // Function to select three words based on the current date
+  // Select three words for "today"
   const getTodayWords = useCallback((wordList: Word[]): Word[] => {
-    const referenceDate = new Date('2023-01-01') // Fixed reference date
-    const today = new Date()
-    const diffTime = today.getTime() - referenceDate.getTime()
+    const referenceDate = new Date('2023-01-01')
+    // Convert LA date to a Date representing LA midnight in UTC
+    const laDateString = getTodayDate()
+    const laMidnightUtc = zonedTimeToUtc(`${laDateString} 00:00:00`, 'America/Los_Angeles')
+
+    const diffTime = laMidnightUtc.getTime() - referenceDate.getTime()
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-    const seed = diffDays // Using days since reference as seed
-    const shuffledWords = deterministicShuffle(wordList, seed)
+
+    const shuffledWords = deterministicShuffle(wordList, diffDays)
     return [
       shuffledWords[0],
       shuffledWords[1],
@@ -97,7 +90,7 @@ export default function SpellingGame() {
     ]
   }, [])
 
-  // Check if user has played today
+  // Check if user played today based on LA date
   const hasUserPlayedToday = useCallback((): boolean => {
     const lastPlayedDate = localStorage.getItem('lastPlayedDate')
     const today = getTodayDate()
