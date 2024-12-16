@@ -9,7 +9,7 @@ import { Volume2, Play, Share2, X } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
 import useIsIpad from '@/hooks/useIsIpad' // Detect if device is iPad
-import { zonedTimeToUtc } from 'date-fns-tz'
+import { formatInTimeZone } from 'date-fns-tz'
 
 interface Word {
   id: number
@@ -64,7 +64,7 @@ export default function SpellingGame() {
   const [score, setScore] = useState(0)
   const [correctWordCount, setCorrectWordCount] = useState<number>(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
-  const [attempts, setAttempts] = useState<string[]>([])
+  const [attempts, setAttempts] = useState<string[]>([]) // Store user's attempts for each word
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const isIpad = useIsIpad()
@@ -72,18 +72,33 @@ export default function SpellingGame() {
   const [showAnswersModal, setShowAnswersModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  // Function to get LA midnight UTC date
+  const getLaMidnightUtc = (laDateString: string): Date => {
+    // Local midnight in LA (no offset)
+    const localDateStr = `${laDateString}T00:00:00`
+    // Determine LA offset for this date
+    const offsetString = formatInTimeZone(new Date(localDateStr), 'America/Los_Angeles', 'XXX')
+    // Create full ISO string with LA offset
+    const laMidnightLocalISO = `${laDateString}T00:00:00${offsetString}`
+    // Construct a Date (UTC) from this string
+    return new Date(laMidnightLocalISO)
+  }
+
   // Select three words for "today"
   const getTodayWords = useCallback((wordList: Word[]): Word[] => {
     const referenceDate = new Date('2023-01-01')
-    // Convert LA date to a Date representing LA midnight in UTC
     const laDateString = getTodayDate()
-    const laMidnightUtc = zonedTimeToUtc(`${laDateString} 00:00:00`, 'America/Los_Angeles')
+    const laMidnightUtc = getLaMidnightUtc(laDateString)
 
     const diffTime = laMidnightUtc.getTime() - referenceDate.getTime()
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
     const shuffledWords = deterministicShuffle(wordList, diffDays)
-    return [shuffledWords[0], shuffledWords[1], shuffledWords[2]]
+    return [
+      shuffledWords[0],
+      shuffledWords[1],
+      shuffledWords[2]
+    ]
   }, [])
 
   // Check if user played today based on LA date
