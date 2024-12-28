@@ -69,7 +69,7 @@ export default function Home() {
       setScore(score + 1)
       toast({ description: 'Correct! Well done!' })
     } else {
-      toast({ description: 'Incorrect. Try again!' })
+      toast({ description: 'Incorrect.' })
     }
 
     setUserInput('')
