@@ -1,5 +1,3 @@
-// src/app/game/page.tsx
-
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -8,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Play, Share2, X } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import supabase from '@/lib/supabase'
-import useIsIpad from '@/hooks/useIsIpad' // Detect if device is iPad
+import useIsIpad from '@/hooks/useIsIpad'
 import { formatInTimeZone } from 'date-fns-tz'
 
 interface Word {
@@ -18,17 +16,14 @@ interface Word {
   audio_url: string
 }
 
-// Helper function to seed a random number generator
 const seedRandom = (seed: number): () => number => {
   let value = seed
   return () => {
-    // LCG parameters
     value = (value * 9301 + 49297) % 233280
     return value / 233280
   }
 }
 
-// Deterministic Fisher-Yates Shuffle
 const deterministicShuffle = (array: Word[], seed: number): Word[] => {
   const shuffled = [...array]
   const rand = seedRandom(seed)
@@ -39,7 +34,7 @@ const deterministicShuffle = (array: Word[], seed: number): Word[] => {
   return shuffled
 }
 
-// Get today's date in 'YYYY-MM-DD' format according to Pacific Time
+// Return LA date in YYYY-MM-DD
 const getTodayDate = (): string => {
   const now = new Date()
   const options: Intl.DateTimeFormatOptions = {
@@ -52,8 +47,15 @@ const getTodayDate = (): string => {
   return formatter.format(now)
 }
 
+// LA midnight in UTC for seeding
+const getLaMidnightUtc = (laDateString: string): Date => {
+  const localDateStr = `${laDateString}T00:00:00`
+  const offsetString = formatInTimeZone(new Date(localDateStr), 'America/Los_Angeles', 'XXX')
+  const laMidnightLocalISO = `${laDateString}T00:00:00${offsetString}`
+  return new Date(laMidnightLocalISO)
+}
+
 export default function SpellingGame() {
-  // Define the total game time in seconds
   const TOTAL_TIME = 60
 
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
@@ -62,68 +64,34 @@ export default function SpellingGame() {
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<Word[]>([])
   const [score, setScore] = useState(0)
-  const [correctWordCount, setCorrectWordCount] = useState<number>(0)
+  const [correctWordCount, setCorrectWordCount] = useState(0)
   const [hasPlayedToday, setHasPlayedToday] = useState(false)
-  const [attempts, setAttempts] = useState<string[]>([]) // Store user's attempts for each word
-  const audioRef = useRef<HTMLAudioElement>(null)
-
-  const isIpad = useIsIpad()
+  const [attempts, setAttempts] = useState<string[]>([])
   const [showIpadKeyboard, setShowIpadKeyboard] = useState(false)
   const [showAnswersModal, setShowAnswersModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Function to get LA midnight UTC date
-  const getLaMidnightUtc = (laDateString: string): Date => {
-    // Local midnight in LA (no offset)
-    const localDateStr = `${laDateString}T00:00:00`
-    // Determine LA offset for this date
-    const offsetString = formatInTimeZone(new Date(localDateStr), 'America/Los_Angeles', 'XXX')
-    // Create full ISO string with LA offset
-    const laMidnightLocalISO = `${laDateString}T00:00:00${offsetString}`
-    // Construct a Date (UTC) from this string
-    return new Date(laMidnightLocalISO)
-  }
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const isIpad = useIsIpad()
 
-  // Select three words for "today"
-  const getTodayWords = useCallback((wordList: Word[]): Word[] => {
-    const referenceDate = new Date('2023-01-01')
-    const laDateString = getTodayDate()
-    const laMidnightUtc = getLaMidnightUtc(laDateString)
+  // 1) Save *all* relevant data to localStorage
+  const persistToLocalStorage = useCallback((updatedScore?: number, updatedCount?: number, updatedTime?: number, updatedAttempts?: string[]) => {
+    const finalScore = updatedScore !== undefined ? updatedScore : score
+    const finalCorrectCount = updatedCount !== undefined ? updatedCount : correctWordCount
+    const finalTime = updatedTime !== undefined ? updatedTime : timeLeft
+    const finalAttempts = updatedAttempts !== undefined ? updatedAttempts : attempts
 
-    const diffTime = laMidnightUtc.getTime() - referenceDate.getTime()
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-
-    const shuffledWords = deterministicShuffle(wordList, diffDays)
-    return [
-      shuffledWords[0],
-      shuffledWords[1],
-      shuffledWords[2]
-    ]
-  }, [])
-
-  // Check if user played today based on LA date
-  const hasUserPlayedToday = useCallback((): boolean => {
-    const lastPlayedDate = localStorage.getItem('lastPlayedDate')
-    const today = getTodayDate()
-    return lastPlayedDate === today
-  }, [])
-
-  // 1) Store attempts and final score in localStorage
-  const saveGameData = useCallback((finalScore: number, correctWords: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', finalScore.toString())
-    localStorage.setItem('lastCorrectWordCount', correctWords.toString())
-    localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
-    // Also store attempts to ensure the "Check Right Answers" modal is correct after refresh
-    localStorage.setItem('lastAttempts', JSON.stringify(attempts))
+    localStorage.setItem('lastCorrectWordCount', finalCorrectCount.toString())
+    localStorage.setItem('lastTimeLeft', finalTime.toString())
+    localStorage.setItem('lastAttempts', JSON.stringify(finalAttempts))
 
-    console.log(
-      `Game Data Saved: Score=${finalScore}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}, attempts=${attempts}`
-    )
-  }, [attempts])
+    console.log(`Persisted Data => Score=${finalScore}, CorrectWords=${finalCorrectCount}, TimeLeft=${finalTime}, Attempts=${finalAttempts}`)
+  }, [score, correctWordCount, timeLeft, attempts])
 
-  // 2) Load final score and attempts from localStorage
+  // 2) Load from localStorage
   const loadGameData = useCallback(() => {
     try {
       const storedScore = localStorage.getItem('lastScore')
@@ -131,28 +99,16 @@ export default function SpellingGame() {
       const storedTimeLeft = localStorage.getItem('lastTimeLeft')
       const storedAttempts = localStorage.getItem('lastAttempts')
 
-      console.log(
-        `Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}, Attempts=${storedAttempts}`
-      )
+      console.log(`Loaded Game Data => Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}, Attempts=${storedAttempts}`)
 
-      if (storedScore) {
-        setScore(parseInt(storedScore, 10))
-      }
-      if (storedCorrectWords) {
-        const correctWords = parseInt(storedCorrectWords, 10)
-        setCorrectWordCount(correctWords)
-      }
-      if (storedTimeLeft) {
-        setTimeLeft(parseInt(storedTimeLeft, 10))
-      }
-      // If we have stored attempts, restore them
-      if (storedAttempts) {
-        setAttempts(JSON.parse(storedAttempts))
-      }
+      if (storedScore) setScore(parseInt(storedScore, 10))
+      if (storedCorrectWords) setCorrectWordCount(parseInt(storedCorrectWords, 10))
+      if (storedTimeLeft) setTimeLeft(parseInt(storedTimeLeft, 10))
+      if (storedAttempts) setAttempts(JSON.parse(storedAttempts))
     } catch (error) {
       console.error('Error loading game data:', error)
       toast({
-        description: 'Failed to load your previous game data. Starting a new game.',
+        description: 'Failed to load previous game data. Starting fresh.',
         variant: "destructive"
       })
       localStorage.removeItem('lastPlayedDate')
@@ -163,18 +119,35 @@ export default function SpellingGame() {
     }
   }, [toast])
 
-  // 3) Handle game end
+  const hasUserPlayedToday = useCallback((): boolean => {
+    const lastPlayedDate = localStorage.getItem('lastPlayedDate')
+    return lastPlayedDate === getTodayDate()
+  }, [])
+
+  // 3) Use function to compute today's 3 words
+  const getTodayWords = useCallback((wordList: Word[]): Word[] => {
+    const referenceDate = new Date('2023-01-01')
+    const laDateString = getTodayDate()
+    const laMidnightUtc = getLaMidnightUtc(laDateString)
+
+    const diffTime = laMidnightUtc.getTime() - referenceDate.getTime()
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+    return deterministicShuffle(wordList, diffDays).slice(0, 3)
+  }, [])
+
+  // 4) End game => final score, store
   const handleGameEnd = useCallback(() => {
-    // Add time bonus to final score
+    // Add time bonus
     setScore(prevScore => {
       const finalScore = prevScore + timeLeft
-      saveGameData(finalScore, correctWordCount, timeLeft)
+      setGameState('finished')
+      persistToLocalStorage(finalScore, correctWordCount, timeLeft)
       return finalScore
     })
-    setGameState('finished')
-  }, [timeLeft, correctWordCount, saveGameData])
+  }, [timeLeft, correctWordCount, persistToLocalStorage])
 
-  // 4) Main submit function, record attempt
+  // 5) Submit
   const handleSubmit = useCallback(() => {
     if (currentWordIndex >= selectedWords.length) return
 
@@ -182,38 +155,106 @@ export default function SpellingGame() {
     const userAttempt = userInput.trim().toLowerCase()
     const isCorrect = userAttempt === currentWord.word.trim().toLowerCase()
 
-    // Record the attempt in the array
+    // Record attempt
     setAttempts(prev => {
-      const newArr = [...prev]
-      newArr[currentWordIndex] = userInput.trim()
-      return newArr
+      const updated = [...prev]
+      updated[currentWordIndex] = userInput.trim()
+      // Immediately persist new attempt
+      persistToLocalStorage(undefined, undefined, undefined, updated)
+      return updated
     })
 
     if (isCorrect) {
-      setCorrectWordCount(prev => prev + 1)
-      setScore(prev => prev + 50)
+      setCorrectWordCount(prevCount => {
+        const newCount = prevCount + 1
+        persistToLocalStorage(undefined, newCount) // update correctWordCount in localStorage immediately
+        return newCount
+      })
+      setScore(prevScore => {
+        const newScore = prevScore + 50
+        persistToLocalStorage(newScore) // also store updated score
+        return newScore
+      })
     }
 
     const nextIndex = currentWordIndex + 1
     if (nextIndex < selectedWords.length && timeLeft > 0) {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
-      // Auto-play next word
       setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.src = selectedWords[nextIndex].audio_url
           audioRef.current.load()
-          audioRef.current.play().catch(err => {
-            console.error('Failed to play audio:', err)
-          })
+          audioRef.current.play().catch(err => console.error('Audio play error:', err))
         }
       }, 500)
     } else {
       handleGameEnd()
     }
-  }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
+  }, [currentWordIndex, selectedWords, userInput, timeLeft, persistToLocalStorage, handleGameEnd])
 
-  // 5) Fetch words from supabase on mount
+  // 6) Start game => reset data, auto-play first word
+  const startGame = useCallback(() => {
+    if (hasUserPlayedToday()) {
+      toast({
+        description: 'You have already played today. Play again tomorrow!',
+        variant: "destructive"
+      })
+      return
+    }
+
+    setGameState('playing')
+    setTimeLeft(TOTAL_TIME)
+    setUserInput('')
+    setScore(0)
+    setCorrectWordCount(0)
+    setCurrentWordIndex(0)
+    setAttempts(Array(selectedWords.length).fill(''))
+
+    // Clear localStorage for new game or at least update
+    persistToLocalStorage(0, 0, TOTAL_TIME, Array(selectedWords.length).fill(''))
+
+    setTimeout(() => {
+      if (audioRef.current && selectedWords[0]) {
+        audioRef.current.src = selectedWords[0].audio_url
+        audioRef.current.load()
+        audioRef.current.play().catch(error => {
+          console.error('Failed to play audio:', error)
+        })
+      }
+    }, 500)
+  }, [hasUserPlayedToday, persistToLocalStorage, selectedWords, toast])
+
+  // 7) Physical keyboard
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState === 'playing' && !isIpad) {
+        if (e.key === 'Backspace') {
+          setUserInput(prev => prev.slice(0, -1))
+        } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
+          setUserInput(prev => prev + e.key)
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          handleSubmit()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [gameState, handleSubmit, isIpad])
+
+  // 8) Timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (gameState === 'playing' && timeLeft > 0) {
+      timer = setTimeout(() => setTimeLeft(t => t - 1), 1000)
+    } else if (timeLeft === 0 && gameState === 'playing') {
+      handleGameEnd()
+    }
+    return () => clearTimeout(timer)
+  }, [timeLeft, gameState, handleGameEnd])
+
+  // 9) Fetch words
   useEffect(() => {
     const fetchWords = async () => {
       setIsLoading(true)
@@ -233,7 +274,7 @@ export default function SpellingGame() {
       }
 
       if (data) {
-        const validWords = data.filter(word => word.word && word.definition && word.audio_url)
+        const validWords = data.filter((w: any) => w.word && w.definition && w.audio_url)
         if (validWords.length < 3) {
           console.error('Not enough valid words in the database.')
           toast({
@@ -246,101 +287,25 @@ export default function SpellingGame() {
         const todaysWords = getTodayWords(validWords)
         setSelectedWords(todaysWords)
         setAttempts(Array(todaysWords.length).fill(''))
-        console.log(`Selected Words for Today: ${todaysWords.map(w => w.word).join(', ')}`)
+        console.log(`Selected Words for Today: ${todaysWords.map((w: any) => w.word).join(', ')}`)
       }
       setIsLoading(false)
     }
-
     fetchWords()
   }, [getTodayWords, toast])
 
-  // 6) Check if user has played today
+  // 10) Check if played
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
       loadGameData()
-      // Force game to finished after loading stored data
+      // Force finished after loading
       setTimeout(() => {
         setGameState('finished')
       }, 100)
     }
   }, [hasUserPlayedToday, loadGameData])
-
-  // 7) Timer effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (gameState === 'playing' && timeLeft > 0) {
-      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
-    } else if (timeLeft === 0 && gameState === 'playing') {
-      handleGameEnd()
-    }
-    return () => clearTimeout(timer)
-  }, [timeLeft, gameState, handleGameEnd])
-
-  // 8) Keyboard events (physical)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState === 'playing' && !isIpad) {
-        if (e.key === 'Backspace') {
-          setUserInput(prev => prev.slice(0, -1))
-        } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
-          setUserInput(prev => prev + e.key)
-        } else if (e.key === 'Enter') {
-          handleSubmit()
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [gameState, handleSubmit, isIpad])
-
-  // 9) Start game
-  const startGame = () => {
-    if (hasPlayedToday) {
-      toast({
-        description: 'You have already played today. Play again tomorrow!',
-        variant: "destructive"
-      })
-      return
-    }
-
-    setGameState('playing')
-    setTimeLeft(TOTAL_TIME)
-    setUserInput('')
-    setScore(0)
-    setCorrectWordCount(0)
-    setCurrentWordIndex(0)
-    setAttempts(Array(selectedWords.length).fill(''))
-
-    // Auto-play first word
-    setTimeout(() => {
-      if (audioRef.current && selectedWords[0]) {
-        audioRef.current.src = selectedWords[0].audio_url
-        audioRef.current.load()
-        audioRef.current.play().catch(error => {
-          console.error('Failed to play audio:', error)
-        })
-      }
-    }, 500)
-  }
-
-  // 10) Play current audio
-  const playAudio = () => {
-    const currentWord = selectedWords[currentWordIndex]
-    if (!currentWord?.audio_url || !audioRef.current) return
-
-    audioRef.current.src = currentWord.audio_url
-    audioRef.current.load()
-    audioRef.current.play().catch(error => {
-      console.error('Error playing audio:', error)
-      toast({
-        description: 'Failed to play audio. Please try again.',
-        variant: "destructive"
-      })
-    })
-  }
 
   // 11) On-screen keyboard for phone
   const handleKeyPress = (key: string) => {
@@ -353,10 +318,23 @@ export default function SpellingGame() {
     }
   }
 
-  // 12) Share results
+  // 12) Play audio
+  const playAudio = () => {
+    if (!selectedWords[currentWordIndex]?.audio_url || !audioRef.current) return
+    audioRef.current.src = selectedWords[currentWordIndex].audio_url
+    audioRef.current.load()
+    audioRef.current.play().catch(error => {
+      console.error('Error playing audio:', error)
+      toast({
+        description: 'Failed to play audio. Please try again.',
+        variant: "destructive"
+      })
+    })
+  }
+
+  // 13) Share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that?`
-
     if (navigator.share) {
       try {
         await navigator.share({
@@ -393,7 +371,6 @@ export default function SpellingGame() {
         <CardContent className="p-4">
           <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">Spelling B-</h1>
 
-          {/* Game States */}
           {gameState === 'ready' && (
             <div className="space-y-4">
               <p className="text-center text-gray-600">
@@ -420,13 +397,11 @@ export default function SpellingGame() {
 
           {gameState === 'playing' && selectedWords.length > 0 && (
             <div className="space-y-4">
-              {/* Current Score and Time Left */}
               <div className="flex justify-between items-center">
                 <p className="text-lg font-medium text-gray-700">Score: {score}</p>
                 <p className="text-lg font-medium text-gray-700">Time Left: {timeLeft}s</p>
               </div>
 
-              {/* Definition */}
               <div className="min-h-[3rem]">
                 <p className="text-center font-medium text-gray-700">
                   {selectedWords[currentWordIndex].definition}
@@ -435,7 +410,7 @@ export default function SpellingGame() {
 
               {/* Audio Button */}
               <div className="flex justify-center">
-                <Button 
+                <Button
                   onClick={playAudio}
                   variant="outline"
                   className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm"
@@ -462,7 +437,7 @@ export default function SpellingGame() {
                 </p>
               </div>
 
-              {/* Phone On-Screen Keyboard (small screens, non-iPad) */}
+              {/* On-Screen Keyboard for phone (non-iPad) */}
               {!isIpad && (
                 <div className="md:hidden">
                   <div className="space-y-4">
@@ -498,7 +473,6 @@ export default function SpellingGame() {
                         })}
                       </div>
                     ))}
-                    {/* Submit Button on Mobile */}
                     <div className="flex justify-center space-x-1">
                       <Button
                         onClick={() => handleKeyPress('submit')}
@@ -512,7 +486,7 @@ export default function SpellingGame() {
                 </div>
               )}
 
-              {/* iPad-specific handling */}
+              {/* iPad-specific Keyboard Toggle */}
               {isIpad && !showIpadKeyboard && (
                 <div className="flex justify-center mt-4">
                   <Button
@@ -524,7 +498,7 @@ export default function SpellingGame() {
                 </div>
               )}
 
-              {/* iPad On-Screen Keyboard (shown after "Get Keyboard") */}
+              {/* iPad On-Screen Keyboard */}
               {isIpad && showIpadKeyboard && (
                 <div className="space-y-4">
                   {[
@@ -559,7 +533,6 @@ export default function SpellingGame() {
                       })}
                     </div>
                   ))}
-                  {/* Submit Button on iPad */}
                   <div className="flex justify-center space-x-1">
                     <Button
                       onClick={() => handleKeyPress('submit')}
