@@ -243,8 +243,8 @@ export default function SpellingGame() {
     const fetchWords = async () => {
       setIsLoading(true)
       const { data, error } = await supabase
-        .from<Word>('audio_files')
-        .select('*')
+        .from('audio_files') // Removed generic here
+        .select<Word>('*') // Added generic to select
         .order('id', { ascending: true }) // Ensure consistent order
 
       if (error) {
