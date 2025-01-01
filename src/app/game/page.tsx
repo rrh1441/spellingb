@@ -1,4 +1,4 @@
-\// src/app/game/page.tsx
+// src/app/game/page.tsx
 
 "use client"
 
@@ -96,7 +96,7 @@ export default function SpellingGame() {
     ]
   }, [])
 
-  // Check if user played today based on LA date
+  // Check if user has played today based on LA date
   const hasUserPlayedToday = useCallback((): boolean => {
     const lastPlayedDate = localStorage.getItem('lastPlayedDate')
     return lastPlayedDate === getTodayDate()
@@ -228,6 +228,7 @@ export default function SpellingGame() {
         } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
           setUserInput(prev => prev + e.key)
         } else if (e.key === 'Enter') {
+          e.preventDefault()
           handleSubmit()
         }
       }
@@ -316,6 +317,20 @@ export default function SpellingGame() {
     }
   }
 
+  // Play audio
+  const playAudio = () => {
+    if (!selectedWords[currentWordIndex]?.audio_url || !audioRef.current) return
+    audioRef.current.src = selectedWords[currentWordIndex].audio_url
+    audioRef.current.load()
+    audioRef.current.play().catch(error => {
+      console.error('Error playing audio:', error)
+      toast({
+        description: 'Failed to play audio. Please try again.',
+        variant: "destructive"
+      })
+    })
+  }
+
   // Share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that?`
@@ -370,7 +385,7 @@ export default function SpellingGame() {
                 size="lg"
                 disabled={hasPlayedToday || isLoading} 
               >
-                <Play className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "Start Game (Sound On)"}
+                <Play className="mr-2 h-5 w-5" /> Start Game (Sound On)
               </Button>
               {hasPlayedToday && (
                 <p className="text-center text-2xl font-bold text-gray-800 mt-4">
