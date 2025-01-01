@@ -108,23 +108,32 @@ export default function SpellingGame() {
     return lastPlayedDate === today
   }, [])
 
-  // Save game data to localStorage
+  // 1) Store attempts and final score in localStorage
   const saveGameData = useCallback((finalScore: number, correctWords: number, timeLeftValue: number) => {
     const today = getTodayDate()
     localStorage.setItem('lastPlayedDate', today)
     localStorage.setItem('lastScore', finalScore.toString())
     localStorage.setItem('lastCorrectWordCount', correctWords.toString())
     localStorage.setItem('lastTimeLeft', timeLeftValue.toString())
-    console.log(`Game Data Saved: Score=${finalScore}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}`)
-  }, [])
+    // Also store attempts to ensure the "Check Right Answers" modal is correct after refresh
+    localStorage.setItem('lastAttempts', JSON.stringify(attempts))
 
-  // Load game data from localStorage
+    console.log(
+      `Game Data Saved: Score=${finalScore}, CorrectWords=${correctWords}, TimeLeft=${timeLeftValue}, attempts=${attempts}`
+    )
+  }, [attempts])
+
+  // 2) Load final score and attempts from localStorage
   const loadGameData = useCallback(() => {
     try {
       const storedScore = localStorage.getItem('lastScore')
       const storedCorrectWords = localStorage.getItem('lastCorrectWordCount')
       const storedTimeLeft = localStorage.getItem('lastTimeLeft')
-      console.log(`Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}`)
+      const storedAttempts = localStorage.getItem('lastAttempts')
+
+      console.log(
+        `Loaded Game Data: Score=${storedScore}, CorrectWords=${storedCorrectWords}, TimeLeft=${storedTimeLeft}, Attempts=${storedAttempts}`
+      )
 
       if (storedScore) {
         setScore(parseInt(storedScore, 10))
@@ -136,6 +145,10 @@ export default function SpellingGame() {
       if (storedTimeLeft) {
         setTimeLeft(parseInt(storedTimeLeft, 10))
       }
+      // If we have stored attempts, restore them
+      if (storedAttempts) {
+        setAttempts(JSON.parse(storedAttempts))
+      }
     } catch (error) {
       console.error('Error loading game data:', error)
       toast({
@@ -146,17 +159,22 @@ export default function SpellingGame() {
       localStorage.removeItem('lastScore')
       localStorage.removeItem('lastCorrectWordCount')
       localStorage.removeItem('lastTimeLeft')
+      localStorage.removeItem('lastAttempts')
     }
-  }, [])
+  }, [toast])
 
-  // Handle game end
+  // 3) Handle game end
   const handleGameEnd = useCallback(() => {
-    setScore(prev => prev + timeLeft) // Add time bonus to the score
+    // Add time bonus to final score
+    setScore(prevScore => {
+      const finalScore = prevScore + timeLeft
+      saveGameData(finalScore, correctWordCount, timeLeft)
+      return finalScore
+    })
     setGameState('finished')
-    saveGameData(score + timeLeft, correctWordCount, timeLeft)
-  }, [timeLeft, score, correctWordCount, saveGameData])
+  }, [timeLeft, correctWordCount, saveGameData])
 
-  // Handle submission
+  // 4) Main submit function, record attempt
   const handleSubmit = useCallback(() => {
     if (currentWordIndex >= selectedWords.length) return
 
@@ -164,11 +182,11 @@ export default function SpellingGame() {
     const userAttempt = userInput.trim().toLowerCase()
     const isCorrect = userAttempt === currentWord.word.trim().toLowerCase()
 
-    // Record the attempt
+    // Record the attempt in the array
     setAttempts(prev => {
-      const newAttempts = [...prev]
-      newAttempts[currentWordIndex] = userInput.trim()
-      return newAttempts
+      const newArr = [...prev]
+      newArr[currentWordIndex] = userInput.trim()
+      return newArr
     })
 
     if (isCorrect) {
@@ -176,18 +194,17 @@ export default function SpellingGame() {
       setScore(prev => prev + 50)
     }
 
-    // Move to next word
     const nextIndex = currentWordIndex + 1
     if (nextIndex < selectedWords.length && timeLeft > 0) {
       setCurrentWordIndex(nextIndex)
       setUserInput('')
-
+      // Auto-play next word
       setTimeout(() => {
         if (audioRef.current) {
           audioRef.current.src = selectedWords[nextIndex].audio_url
           audioRef.current.load()
-          audioRef.current.play().catch(error => {
-            console.error('Failed to play audio:', error)
+          audioRef.current.play().catch(err => {
+            console.error('Failed to play audio:', err)
           })
         }
       }, 500)
@@ -196,14 +213,14 @@ export default function SpellingGame() {
     }
   }, [currentWordIndex, selectedWords, timeLeft, handleGameEnd, userInput])
 
-  // Fetch words
+  // 5) Fetch words from supabase on mount
   useEffect(() => {
     const fetchWords = async () => {
       setIsLoading(true)
       const { data, error } = await supabase
         .from('audio_files')
         .select('*')
-        .order('id', { ascending: true }) // Ensure consistent order
+        .order('id', { ascending: true })
 
       if (error) {
         console.error('Error fetching words:', error)
@@ -235,21 +252,22 @@ export default function SpellingGame() {
     }
 
     fetchWords()
-  }, [getTodayWords])
+  }, [getTodayWords, toast])
 
-  // Check if user played today
+  // 6) Check if user has played today
   useEffect(() => {
     const played = hasUserPlayedToday()
     setHasPlayedToday(played)
     if (played) {
       loadGameData()
+      // Force game to finished after loading stored data
       setTimeout(() => {
         setGameState('finished')
       }, 100)
     }
   }, [hasUserPlayedToday, loadGameData])
 
-  // Timer
+  // 7) Timer effect
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (gameState === 'playing' && timeLeft > 0) {
@@ -260,7 +278,7 @@ export default function SpellingGame() {
     return () => clearTimeout(timer)
   }, [timeLeft, gameState, handleGameEnd])
 
-  // Keyboard events from physical keyboard (desktop)
+  // 8) Keyboard events (physical)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState === 'playing' && !isIpad) {
@@ -278,7 +296,7 @@ export default function SpellingGame() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [gameState, handleSubmit, isIpad])
 
-  // Start game
+  // 9) Start game
   const startGame = () => {
     if (hasPlayedToday) {
       toast({
@@ -294,8 +312,9 @@ export default function SpellingGame() {
     setScore(0)
     setCorrectWordCount(0)
     setCurrentWordIndex(0)
+    setAttempts(Array(selectedWords.length).fill(''))
 
-    // Play initial audio
+    // Auto-play first word
     setTimeout(() => {
       if (audioRef.current && selectedWords[0]) {
         audioRef.current.src = selectedWords[0].audio_url
@@ -307,7 +326,7 @@ export default function SpellingGame() {
     }, 500)
   }
 
-  // Play audio
+  // 10) Play current audio
   const playAudio = () => {
     const currentWord = selectedWords[currentWordIndex]
     if (!currentWord?.audio_url || !audioRef.current) return
@@ -323,7 +342,7 @@ export default function SpellingGame() {
     })
   }
 
-  // Handle on-screen keyboard presses
+  // 11) On-screen keyboard for phone
   const handleKeyPress = (key: string) => {
     if (key === 'backspace') {
       setUserInput(prev => prev.slice(0, -1))
@@ -334,7 +353,7 @@ export default function SpellingGame() {
     }
   }
 
-  // Share results
+  // 12) Share results
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${score} points. Can you beat that?`
 
@@ -360,6 +379,14 @@ export default function SpellingGame() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-lg text-gray-600">Loading game...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2 relative">
       <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl z-10">
@@ -378,9 +405,10 @@ export default function SpellingGame() {
                 onClick={startGame}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
                 size="lg"
-                disabled={hasPlayedToday || isLoading} 
+                disabled={hasPlayedToday || isLoading}
               >
-                <Play className="mr-2 h-5 w-5" /> {isLoading ? "Loading..." : "Start Game (Sound On)"}
+                <Play className="mr-2 h-5 w-5" />
+                {isLoading ? "Loading..." : "Start Game (Sound On)"}
               </Button>
               {hasPlayedToday && (
                 <p className="text-center text-2xl font-bold text-gray-800 mt-4">
@@ -407,7 +435,7 @@ export default function SpellingGame() {
 
               {/* Audio Button */}
               <div className="flex justify-center">
-                <Button
+                <Button 
                   onClick={playAudio}
                   variant="outline"
                   className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm"
@@ -434,7 +462,7 @@ export default function SpellingGame() {
                 </p>
               </div>
 
-              {/* Phone On-Screen Keyboard (small screens) */}
+              {/* Phone On-Screen Keyboard (small screens, non-iPad) */}
               {!isIpad && (
                 <div className="md:hidden">
                   <div className="space-y-4">
