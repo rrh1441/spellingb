@@ -627,7 +627,7 @@ export default function SpellingGame() {
 
               {/* "Keep us ad-free" button */}
               <Button
-                onClick={() => window.open('https://trysimpleapps.gumroad.com/coffee', '_blank')}
+                onClick={() => window.open('https://buy.stripe.com/5kAg2qb6R5gjfKw28f, '_blank')}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors mt-4"
                 size="lg"
               >
