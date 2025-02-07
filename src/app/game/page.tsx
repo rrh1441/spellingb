@@ -4,12 +4,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Volume2, Play, Share2, X } from "lucide-react";
+import { Volume2, Play, Share2 } from "lucide-react"; // Removed X since it was unused
 import { toast } from "@/components/ui/use-toast";
 import supabase from "@/lib/supabase";
 import useIsIpad from "@/hooks/useIsIpad";
-import { formatInTimeZone } from "date-fns-tz";
-import { getTodayDate, getLaMidnightUtc } from "@/lib/utils";
+import { getTodayDate, getLaMidnightUtc } from "@/lib/utils"; // formatInTimeZone removed because it’s not used
 import { useGameState } from "@/hooks/useGameState";
 import { Keyboard } from "@/components/Keyboard";
 
@@ -24,7 +23,6 @@ interface Word {
 const seedRandom = (seed: number): () => number => {
   let value = seed;
   return () => {
-    // LCG parameters
     value = (value * 9301 + 49297) % 233280;
     return value / 233280;
   };
@@ -61,15 +59,8 @@ export default function SpellingGame() {
   const [isLoading, setIsLoading] = useState(false);
   const [showIpadKeyboard, setShowIpadKeyboard] = useState(false);
 
-  // When the words have been fetched, initialize the attempts array if needed.
-  useEffect(() => {
-    if (selectedWords.length > 0 && gameData.attempts.length !== selectedWords.length) {
-      setStateToInitial();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWords]);
-
-  const setStateToInitial = () => {
+  // Wrap the function to reset the game state in useCallback.
+  const setStateToInitial = useCallback(() => {
     setGameData((prev) => ({
       ...prev,
       gameState: "ready",
@@ -80,9 +71,16 @@ export default function SpellingGame() {
       currentWordIndex: 0,
       userInput: "",
     }));
-  };
+  }, [selectedWords.length, setGameData, TOTAL_TIME]);
 
-  // Determine today’s words based on a fixed seed.
+  // When selectedWords is set and attempts length doesn’t match, reset state.
+  useEffect(() => {
+    if (selectedWords.length > 0 && gameData.attempts.length !== selectedWords.length) {
+      setStateToInitial();
+    }
+  }, [selectedWords, gameData.attempts.length, setStateToInitial]);
+
+  // Get today's words based on a deterministic shuffle.
   const getTodayWords = useCallback(
     (wordList: Word[]): Word[] => {
       const referenceDate = new Date("2023-01-01");
@@ -96,7 +94,7 @@ export default function SpellingGame() {
     []
   );
 
-  // Handle game end by applying the remaining time bonus.
+  // End game by applying the remaining time bonus.
   const handleGameEnd = useCallback(() => {
     setGameData((prev) => ({
       ...prev,
@@ -105,7 +103,7 @@ export default function SpellingGame() {
     }));
   }, [setGameData]);
 
-  // Handle the submission of an answer.
+  // Handle submission of an answer.
   const handleSubmit = useCallback(() => {
     if (gameData.currentWordIndex >= selectedWords.length) return;
 
@@ -158,15 +156,14 @@ export default function SpellingGame() {
     gameData.userInput,
     gameData.currentWordIndex,
     selectedWords,
-    gameData.score,
-    gameData.correctWordCount,
-    gameData.attempts,
-    gameData.timeLeft,
     setGameData,
     handleGameEnd,
   ]);
+  // Note: We removed gameData.score, gameData.correctWordCount, gameData.attempts,
+  // and gameData.timeLeft from the dependency array because their latest values are
+  // obtained via the updater function.
 
-  // Start the game if not already played.
+  // Start the game.
   const startGame = useCallback(() => {
     if (gameData.gameState !== "ready") {
       toast({
@@ -190,9 +187,9 @@ export default function SpellingGame() {
         );
       }
     }, 500);
-  }, [gameData.gameState, selectedWords, setGameData]);
+  }, [gameData.gameState, selectedWords, setGameData, setStateToInitial]);
 
-  // Handle physical keyboard events (desktop).
+  // Listen for physical keyboard events.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameData.gameState === "playing" && !isIpad) {
@@ -277,7 +274,7 @@ export default function SpellingGame() {
     }
   };
 
-  // Play the current word’s audio.
+  // Play the current word's audio.
   const playAudio = () => {
     if (!selectedWords[gameData.currentWordIndex]?.audio_url || !audioRef.current)
       return;
@@ -292,7 +289,7 @@ export default function SpellingGame() {
     });
   };
 
-  // Share the results.
+  // Share results.
   const shareResults = async () => {
     const shareText = `I just played Spelling B-! I scored ${gameData.score} points. Can you beat that?`;
     if (navigator.share) {
