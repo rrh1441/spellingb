@@ -1,12 +1,22 @@
+// src/lib/supabase.js
 import { createClient } from '@supabase/supabase-js';
 
-// Replace these with your actual Supabase credentials
-const supabaseUrl = 'https://znyczuopidkjyggwlibj.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpueWN6dW9waWRranlnZ3dsaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5MDkxNDcsImV4cCI6MjA0ODQ4NTE0N30.goPkSdTjwnaA1fnbdQzTssSuWCG9bTkT-_0C2mFACz0'; // Your Supabase public key
+// These values will be pulled from Vercel's Environment Variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Create and export the Supabase client
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Optional: Add checks to ensure variables are loaded
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Supabase URL or Anon Key is missing from environment variables.");
+  // Depending on your app's needs, you might throw an error or handle this state
+  // throw new Error("Supabase configuration is incomplete.");
+}
+
+// Initialize client only if configuration is present
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+if (!supabase) {
+  console.error("Supabase client could not be initialized. Check Vercel Environment Variables.");
+}
 
 export default supabase;
-
-
