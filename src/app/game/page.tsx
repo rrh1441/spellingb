@@ -93,7 +93,7 @@ export default function SpellingGame() {
   }, [selectedWords.length, setGameData, TOTAL_TIME]); // Added TOTAL_TIME dependency
 
 
-  // If we fetched words and the attempts array length doesn’t match, reset
+  // If we fetched words and the attempts array length doesn't match, reset
   useEffect(() => {
     if (
       selectedWords.length > 0 &&
@@ -409,7 +409,7 @@ export default function SpellingGame() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Loading today's words...</p>
+        <p className="text-lg text-gray-600">Loading today&apos;s words...</p>
         {/* Optional: Add a spinner here */}
       </div>
     );
@@ -430,8 +430,7 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                {/* ESLint FIX: Changed &apos; to &#39; below */}
-                Autocorrect won&#39;t save you! Ready?
+                Autocorrect won&apos;t save you! Ready?
               </p>
               <Button
                 onClick={startGame}
