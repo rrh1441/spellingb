@@ -430,7 +430,8 @@ export default function SpellingGame() {
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won&apos;t save you! Ready?
+                {/* ESLint FIX: Changed &apos; to &#39; below */}
+                Autocorrect won&#39;t save you! Ready?
               </p>
               <Button
                 onClick={startGame}
