@@ -1,0 +1,27 @@
+{
+  "name": "Spelling B-",
+  "short_name": "Spelling B-",
+  "description": "Daily spelling game - test your spelling skills without autocorrect!",
+  "start_url": "/game",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "education"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

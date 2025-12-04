@@ -4,19 +4,25 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Volume2, Play, Share2, X } from "lucide-react";
-import { toast } from "@/components/ui/use-toast"; // Ensure toast is imported
-import supabase from "@/lib/supabase"; // Import the potentially null supabase client
+import { Volume2, Play, Share2, X, Trophy, Flame, RotateCcw } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import supabase from "@/lib/supabase";
 import useIsIpad from "@/hooks/useIsIpad";
 import { getTodayDate, getLaMidnightUtc } from "@/lib/utils";
-import { useGameState } from "@/hooks/useGameState";
+import { useGameState, PersistedGameState } from "@/hooks/useGameState";
+import { useStreak } from "@/hooks/useStreak";
 import { Keyboard } from "@/components/Keyboard";
+import { shareResults, getGameDayNumber, ShareData } from "@/lib/share";
+
+type Difficulty = "easy" | "medium" | "hard";
+type GameMode = "daily" | "practice";
 
 interface Word {
   id: number;
   word: string;
   definition: string;
   audio_url: string;
+  difficulty?: Difficulty;
 }
 
 // Helper function to seed a random number generator
@@ -29,7 +35,7 @@ const seedRandom = (seed: number): (() => number) => {
 };
 
 // Deterministic Fisher-Yates Shuffle
-const deterministicShuffle = (array: Word[], seed: number): Word[] => {
+const deterministicShuffle = <T,>(array: T[], seed: number): T[] => {
   const shuffled = [...array];
   const rand = seedRandom(seed);
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -39,10 +45,34 @@ const deterministicShuffle = (array: Word[], seed: number): Word[] => {
   return shuffled;
 };
 
+// Random shuffle for practice mode
+const randomShuffle = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export default function SpellingGame() {
   const TOTAL_TIME = 60;
+  const WORDS_PER_GAME = 3;
   const isIpad = useIsIpad();
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Game mode and difficulty
+  const [gameMode, setGameMode] = useState<GameMode>("daily");
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [allWords, setAllWords] = useState<Word[]>([]);
+  const [selectedWords, setSelectedWords] = useState<Word[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showIpadKeyboard, setShowIpadKeyboard] = useState(false);
+  const [showAnswersModal, setShowAnswersModal] = useState(false);
+  const [showModeSelect, setShowModeSelect] = useState(true);
+
+  // Streak tracking
+  const { streak, recordGame, displayStreak } = useStreak();
 
   // Persistent game state hook
   const { state: gameData, setState: setGameData } = useGameState({
@@ -55,28 +85,40 @@ export default function SpellingGame() {
     userInput: "",
   });
 
-  const [selectedWords, setSelectedWords] = useState<Word[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // Ensure this state exists
-  const [showIpadKeyboard, setShowIpadKeyboard] = useState(false);
-
-  // State for showing/hiding the answers modal
-  const [showAnswersModal, setShowAnswersModal] = useState(false);
-
-  // Get today's words based on a deterministic shuffle
+  // Get today's words based on a deterministic shuffle (for daily mode)
   const getTodayWords = useCallback(
-    (wordList: Word[]): Word[] => {
+    (wordList: Word[], diff: Difficulty): Word[] => {
+      const filteredWords = wordList.filter((w) => w.difficulty === diff);
+      if (filteredWords.length < WORDS_PER_GAME) {
+        // Fallback to all words if not enough in difficulty
+        return wordList.slice(0, WORDS_PER_GAME);
+      }
+
       const referenceDate = new Date("2023-01-01");
       const laDateString = getTodayDate();
       const laMidnightUtc = getLaMidnightUtc(laDateString);
       const diffTime = laMidnightUtc.getTime() - referenceDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const shuffledWords = deterministicShuffle(wordList, diffDays);
-      // Ensure we don't try to access indices beyond the array length
-      return shuffledWords.slice(0, 3);
+
+      // Add difficulty to seed so different difficulties get different words
+      const seed = diffDays + (diff === "easy" ? 0 : diff === "medium" ? 10000 : 20000);
+      const shuffledWords = deterministicShuffle(filteredWords, seed);
+      return shuffledWords.slice(0, WORDS_PER_GAME);
     },
     []
   );
 
+  // Get random words for practice mode
+  const getPracticeWords = useCallback(
+    (wordList: Word[], diff: Difficulty): Word[] => {
+      const filteredWords = wordList.filter((w) => w.difficulty === diff);
+      if (filteredWords.length < WORDS_PER_GAME) {
+        return randomShuffle(wordList).slice(0, WORDS_PER_GAME);
+      }
+      return randomShuffle(filteredWords).slice(0, WORDS_PER_GAME);
+    },
+    []
+  );
 
   // Reset game state to initial
   const setStateToInitial = useCallback(() => {
@@ -86,12 +128,96 @@ export default function SpellingGame() {
       score: 0,
       correctWordCount: 0,
       timeLeft: TOTAL_TIME,
-      attempts: Array(selectedWords.length).fill(""),
+      attempts: Array(WORDS_PER_GAME).fill(""),
       currentWordIndex: 0,
       userInput: "",
     }));
-  }, [selectedWords.length, setGameData, TOTAL_TIME]); // Added TOTAL_TIME dependency
+  }, [setGameData]);
 
+  // Fetch words from Supabase
+  useEffect(() => {
+    const fetchWords = async () => {
+      setIsLoading(true);
+
+      if (!supabase) {
+        console.error("Supabase client is not initialized.");
+        toast({
+          title: "Error",
+          description: "Game configuration error. Please check setup.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Try new 'words' table first, fall back to 'audio_files'
+        let { data, error } = await supabase
+          .from("words")
+          .select("*")
+          .order("id", { ascending: true });
+
+        // If 'words' table doesn't exist, try 'audio_files'
+        if (error && error.code === "42P01") {
+          const fallback = await supabase
+            .from("audio_files")
+            .select("*")
+            .order("id", { ascending: true });
+          data = fallback.data;
+          error = fallback.error;
+        }
+
+        if (error) {
+          console.error("Error fetching words:", error);
+          toast({
+            description: `Failed to load words: ${error.message}`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (data) {
+          const words: Word[] = data.map((w: Word) => ({
+            ...w,
+            difficulty: w.difficulty || "easy", // Default to easy if no difficulty
+          }));
+          const validWords = words.filter((w) => w.word && w.definition && w.audio_url);
+
+          if (validWords.length < WORDS_PER_GAME) {
+            toast({
+              description: "Insufficient words available.",
+              variant: "destructive",
+            });
+            setAllWords([]);
+          } else {
+            setAllWords(validWords);
+          }
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        toast({
+          description: "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWords();
+  }, []);
+
+  // Select words when mode/difficulty changes or words load
+  useEffect(() => {
+    if (allWords.length === 0) return;
+
+    if (gameMode === "daily") {
+      const todaysWords = getTodayWords(allWords, difficulty);
+      setSelectedWords(todaysWords);
+    }
+    // For practice mode, words are selected when starting a new game
+  }, [allWords, gameMode, difficulty, getTodayWords]);
 
   // If we fetched words and the attempts array length doesn't match, reset
   useEffect(() => {
@@ -103,28 +229,31 @@ export default function SpellingGame() {
     }
   }, [selectedWords, gameData.attempts.length, setStateToInitial]);
 
-
   // End game by applying remaining time bonus
   const handleGameEnd = useCallback(() => {
-    setGameData((prev) => ({
-      ...prev,
-      score: prev.score + prev.timeLeft,
-      gameState: "finished",
-    }));
-  }, [setGameData]);
-
+    setGameData((prev) => {
+      const finalScore = prev.score + prev.timeLeft;
+      // Record game for streak tracking (daily mode only)
+      if (gameMode === "daily") {
+        recordGame(finalScore);
+      }
+      return {
+        ...prev,
+        score: finalScore,
+        gameState: "finished",
+      };
+    });
+  }, [setGameData, gameMode, recordGame]);
 
   // Handle submission of an answer
   const handleSubmit = useCallback(() => {
     if (gameData.currentWordIndex >= selectedWords.length) return;
 
     const currentWord = selectedWords[gameData.currentWordIndex];
-    // Guard against currentWord being undefined if selectedWords is empty
     if (!currentWord) return;
 
     const userAttempt = gameData.userInput.trim().toLowerCase();
-    const isCorrect =
-      userAttempt === currentWord.word.trim().toLowerCase();
+    const isCorrect = userAttempt === currentWord.word.trim().toLowerCase();
 
     setGameData((prev) => {
       const newAttempts = [...prev.attempts];
@@ -139,14 +268,11 @@ export default function SpellingGame() {
       const nextIndex = prev.currentWordIndex + 1;
 
       if (nextIndex < selectedWords.length && prev.timeLeft > 0) {
-        // Play the next audio after a short delay
         setTimeout(() => {
-          if (audioRef.current && selectedWords[nextIndex]) { // Check next word exists
+          if (audioRef.current && selectedWords[nextIndex]) {
             audioRef.current.src = selectedWords[nextIndex].audio_url;
             audioRef.current.load();
-            audioRef.current
-              .play()
-              .catch((err) => console.error("Audio play error:", err));
+            audioRef.current.play().catch((err) => console.error("Audio error:", err));
           }
         }, 500);
         return {
@@ -158,52 +284,57 @@ export default function SpellingGame() {
           attempts: newAttempts,
         };
       } else {
-        // End the game
-        handleGameEnd(); // Call handleGameEnd here
         return {
           ...prev,
-          score: newScore, // Ensure final score update is included
-          correctWordCount: newCorrectWordCount, // Ensure final count is included
+          score: newScore,
+          correctWordCount: newCorrectWordCount,
           attempts: newAttempts,
-          // No need to call handleGameEnd again, just return the final state
+          gameState: "finished",
         };
       }
     });
-  }, [
-    gameData.userInput,
-    gameData.currentWordIndex,
-    selectedWords,
-    setGameData,
-    handleGameEnd, // Keep handleGameEnd dependency
-  ]);
+  }, [gameData.userInput, gameData.currentWordIndex, selectedWords, setGameData]);
 
+  // Apply time bonus when game ends
+  useEffect(() => {
+    if (gameData.gameState === "finished" && gameMode === "daily") {
+      recordGame(gameData.score);
+    }
+  }, [gameData.gameState, gameData.score, gameMode, recordGame]);
 
   // Start the game
   const startGame = useCallback(() => {
-    if (gameData.gameState !== "ready") {
+    // For daily mode, check if already played
+    if (gameMode === "daily" && gameData.gameState === "finished") {
       toast({
-        description: "You have already played today. Play again tomorrow!",
+        description: "You've already played today! Try Practice mode or come back tomorrow.",
         variant: "destructive",
       });
       return;
     }
-    setStateToInitial(); // Reset state first
+
+    // For practice mode, get new random words
+    if (gameMode === "practice") {
+      const practiceWords = getPracticeWords(allWords, difficulty);
+      setSelectedWords(practiceWords);
+    }
+
+    setShowModeSelect(false);
+    setStateToInitial();
     setGameData((prev) => ({
       ...prev,
-      gameState: "playing", // Update state *after* reset
+      gameState: "playing",
     }));
-    // Play the initial audio
+
     setTimeout(() => {
-      if (audioRef.current && selectedWords[0]) {
-        audioRef.current.src = selectedWords[0].audio_url;
+      const words = gameMode === "practice" ? getPracticeWords(allWords, difficulty) : selectedWords;
+      if (audioRef.current && words[0]) {
+        audioRef.current.src = words[0].audio_url;
         audioRef.current.load();
-        audioRef.current
-          .play()
-          .catch((error) => console.error("Failed to play audio:", error));
+        audioRef.current.play().catch((error) => console.error("Failed to play audio:", error));
       }
     }, 500);
-  }, [gameData.gameState, selectedWords, setGameData, setStateToInitial]); // Added dependencies
-
+  }, [gameMode, gameData.gameState, allWords, difficulty, selectedWords, setGameData, setStateToInitial, getPracticeWords]);
 
   // Physical keyboard events (desktop)
   useEffect(() => {
@@ -217,7 +348,7 @@ export default function SpellingGame() {
         } else if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
           setGameData((prev) => ({
             ...prev,
-            userInput: prev.userInput + e.key.toLowerCase(), // Ensure consistency
+            userInput: prev.userInput + e.key.toLowerCase(),
           }));
         } else if (e.key === "Enter") {
           e.preventDefault();
@@ -228,89 +359,6 @@ export default function SpellingGame() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameData.gameState, handleSubmit, isIpad, setGameData]);
-
-
-  // Fetch words from Supabase
-  useEffect(() => {
-    const fetchWords = async () => {
-      setIsLoading(true);
-
-      // --- ADDED CHECK FOR NULL SUPABASE CLIENT ---
-      if (!supabase) {
-        console.error("Supabase client is not initialized. Cannot fetch words.");
-        toast({
-          title: "Error",
-          description: "Game configuration error. Please check setup or try again later.",
-          variant: "destructive",
-        });
-        setIsLoading(false); // Stop loading indicator
-        return; // Exit the function early
-      }
-      // --- END OF CHECK ---
-
-      // Proceed only if supabase client is valid
-      try {
-        const { data, error } = await supabase
-          .from("audio_files")
-          .select("*")
-          .order("id", { ascending: true });
-
-        if (error) {
-          console.error("Error fetching words:", error);
-          toast({
-            description: `Failed to load words: ${error.message}. Please refresh.`,
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        if (data) {
-          const words: Word[] = data as Word[];
-          const validWords = words.filter(
-            (w) => w.word && w.definition && w.audio_url
-          );
-          if (validWords.length < 3) {
-            console.error("Not enough valid words in the database.");
-            toast({
-              description: "Insufficient words available for today's game.",
-              variant: "destructive",
-            });
-            // Set selectedWords to empty array or handle as needed
-            setSelectedWords([]);
-          } else {
-             const todaysWords = getTodayWords(validWords);
-             setSelectedWords(todaysWords);
-             // Initialize attempts array based on the actual words fetched
-             setGameData(prev => ({ ...prev, attempts: Array(todaysWords.length).fill("") }));
-          }
-        } else {
-            // Handle case where data is null/undefined but no error occurred
-            console.error("No data received from Supabase, but no error reported.");
-            toast({
-              description: "Could not retrieve words. Please try again.",
-              variant: "destructive",
-            });
-            setSelectedWords([]); // Ensure selectedWords is empty
-        }
-
-      } catch (err) {
-          // Catch any unexpected errors during the async operation
-          console.error("Unexpected error during fetchWords:", err);
-           toast({
-              description: "An unexpected error occurred while loading words.",
-              variant: "destructive",
-            });
-          setSelectedWords([]); // Reset words on unexpected error
-      } finally {
-           setIsLoading(false); // Ensure loading state is always turned off
-      }
-    };
-
-    fetchWords();
-  // Add getTodayWords and setGameData to dependency array if they are stable (useCallback helps)
-  }, [getTodayWords, setGameData]);
-
 
   // Timer effect
   useEffect(() => {
@@ -325,10 +373,9 @@ export default function SpellingGame() {
     return () => clearTimeout(timer);
   }, [gameData.timeLeft, gameData.gameState, setGameData, handleGameEnd]);
 
-
   // On-screen keyboard presses
   const handleKeyPress = (key: string) => {
-    if (gameData.gameState !== "playing") return; // Prevent input if not playing
+    if (gameData.gameState !== "playing") return;
 
     if (key === "backspace") {
       setGameData((prev) => ({
@@ -338,27 +385,23 @@ export default function SpellingGame() {
     } else if (key === "submit") {
       handleSubmit();
     } else {
-      // Add character (ensure consistency, e.g., lowercase)
       setGameData((prev) => ({ ...prev, userInput: prev.userInput + key.toLowerCase() }));
     }
   };
 
-
   // Play current word's audio
   const playAudio = () => {
-    // Ensure game is playing and word index is valid
-     if (
-       gameData.gameState !== 'playing' ||
-       gameData.currentWordIndex >= selectedWords.length ||
-       !selectedWords[gameData.currentWordIndex]?.audio_url ||
-       !audioRef.current
-     ) {
-         console.warn("Cannot play audio: Invalid state or missing data/ref.");
-         return;
-     }
+    if (
+      gameData.gameState !== "playing" ||
+      gameData.currentWordIndex >= selectedWords.length ||
+      !selectedWords[gameData.currentWordIndex]?.audio_url ||
+      !audioRef.current
+    ) {
+      return;
+    }
 
     audioRef.current.src = selectedWords[gameData.currentWordIndex].audio_url;
-    audioRef.current.load(); // Good practice to call load() before play() when changing src
+    audioRef.current.load();
     audioRef.current.play().catch((error) => {
       console.error("Error playing audio:", error);
       toast({
@@ -368,49 +411,46 @@ export default function SpellingGame() {
     });
   };
 
+  // Share results with new format
+  const handleShare = async () => {
+    const shareData: ShareData = {
+      score: gameData.score,
+      correctCount: gameData.correctWordCount,
+      totalWords: selectedWords.length,
+      streak: displayStreak(),
+      difficulty,
+      dayNumber: getGameDayNumber(),
+      attempts: gameData.attempts,
+      correctWords: selectedWords.map((w) => w.word),
+    };
 
-  // Share results
-  const shareResults = async () => {
-    const shareText = `I just played Spelling B-! My score: ${gameData.score} points. Correct: ${gameData.correctWordCount}/${selectedWords.length}. Can you beat that? #SpellingB`;
-    const shareData = {
-        title: "Spelling B- Results",
-        text: shareText,
-        url: window.location.href, // Share the game URL
-    }
+    const result = await shareResults(shareData);
 
-    if (navigator.share && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
+    if (result.success) {
+      if (result.method === "clipboard") {
+        toast({
+          title: "Copied to clipboard!",
+          description: "Share your results with friends.",
+        });
+      } else {
         toast({ description: "Results shared!" });
-      } catch (error) {
-        console.error("Error sharing:", error);
-        // Handle specific errors like AbortError if needed
-         if ((error as DOMException).name !== 'AbortError') {
-            toast({ description: "Sharing failed.", variant: "destructive" });
-        }
       }
     } else {
-        // Fallback for browsers without navigator.share or if data can't be shared
-      try {
-          await navigator.clipboard.writeText(`${shareText} ${window.location.href}`);
-          toast({
-            title: "Copied to clipboard!",
-            description: "Share your results with friends.",
-          });
-      } catch(err) {
-          console.error("Failed to copy results to clipboard: ", err);
-          toast({ description: "Could not copy results.", variant: "destructive" });
-      }
+      toast({ description: "Sharing failed.", variant: "destructive" });
     }
   };
 
+  // Back to mode selection
+  const backToModeSelect = () => {
+    setShowModeSelect(true);
+    setStateToInitial();
+  };
 
   // Loading State UI
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Loading today&apos;s words...</p>
-        {/* Optional: Add a spinner here */}
+        <p className="text-lg text-gray-600">Loading words...</p>
       </div>
     );
   }
@@ -420,62 +460,138 @@ export default function SpellingGame() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-2 relative">
       <Card className="w-full max-w-lg mx-auto overflow-hidden shadow-lg bg-white rounded-xl z-10">
         <CardContent className="p-4">
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
-            Spelling B-
-          </h1>
+          {/* Header with streak */}
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold text-gray-800">Spelling B-</h1>
+            {displayStreak() > 0 && (
+              <div className="flex items-center gap-1 bg-orange-100 px-3 py-1 rounded-full">
+                <Flame className="h-5 w-5 text-orange-500" />
+                <span className="font-bold text-orange-600">{displayStreak()}</span>
+              </div>
+            )}
+          </div>
 
-          {/* ----- READY STATE ----- */}
-          {gameData.gameState === "ready" && (
-            <div className="space-y-4">
+          {/* ----- MODE SELECTION ----- */}
+          {showModeSelect && gameData.gameState === "ready" && (
+            <div className="space-y-6">
               <p className="text-center text-gray-600">
                 Test your spelling skills on everyday words.
                 <br />
-                Autocorrect won&apos;t save you! Ready?
+                Autocorrect won&apos;t save you!
               </p>
-              <Button
-                onClick={startGame}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
-                size="lg"
-                // Disable button if loading or no words are selected yet
-                disabled={isLoading || selectedWords.length === 0}
-              >
-                <Play className="mr-2 h-5 w-5" /> Start Game (Sound On)
-              </Button>
-               {/* Show message if already played */}
-               {/* This condition might need adjustment based on how gameState is persisted */}
-               {/* If gameState loads as 'finished', this might show incorrectly */}
-               {/* Consider a separate flag or checking the date */}
-                {/* {gameData.gameState !== "ready" && (
-                <p className="text-center text-2xl font-bold text-gray-800 mt-4">
-                   Play again tomorrow!
-                 </p>
-               )} */}
-                {/* Show message if words couldn't load */}
-                {!isLoading && selectedWords.length === 0 && (
-                   <p className="text-center text-red-600 mt-4">
-                       Could not load words for today. Please try refreshing.
-                   </p>
-               )}
+
+              {/* Difficulty Selection */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700 text-center">Difficulty</p>
+                <div className="flex gap-2 justify-center">
+                  {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
+                    <Button
+                      key={d}
+                      variant={difficulty === d ? "default" : "outline"}
+                      onClick={() => setDifficulty(d)}
+                      className={
+                        difficulty === d
+                          ? d === "easy"
+                            ? "bg-green-500 hover:bg-green-600"
+                            : d === "medium"
+                            ? "bg-yellow-500 hover:bg-yellow-600"
+                            : "bg-red-500 hover:bg-red-600"
+                          : ""
+                      }
+                    >
+                      {d.charAt(0).toUpperCase() + d.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Game Mode Selection */}
+              <div className="space-y-3">
+                <Button
+                  onClick={() => {
+                    setGameMode("daily");
+                    startGame();
+                  }}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                  size="lg"
+                  disabled={allWords.length === 0}
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  Daily Challenge
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setGameMode("practice");
+                    startGame();
+                  }}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                  disabled={allWords.length === 0}
+                >
+                  <RotateCcw className="mr-2 h-5 w-5" />
+                  Practice Mode (Unlimited)
+                </Button>
+              </div>
+
+              {/* Stats display */}
+              {streak.totalGamesPlayed > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-4 border-t">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-800">{streak.totalGamesPlayed}</p>
+                    <p className="text-xs text-gray-500">Games</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-800">{streak.longestStreak}</p>
+                    <p className="text-xs text-gray-500">Best Streak</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-800">{streak.totalScore}</p>
+                    <p className="text-xs text-gray-500">Total Score</p>
+                  </div>
+                </div>
+              )}
+
+              {!isLoading && allWords.length === 0 && (
+                <p className="text-center text-red-600 mt-4">
+                  Could not load words. Please try refreshing.
+                </p>
+              )}
             </div>
           )}
 
           {/* ----- PLAYING STATE ----- */}
-          {gameData.gameState === "playing" && selectedWords.length > 0 && gameData.currentWordIndex < selectedWords.length && (
+          {gameData.gameState === "playing" && selectedWords.length > 0 && (
             <div className="space-y-4">
+              {/* Mode indicator */}
+              <div className="flex justify-between items-center text-sm">
+                <span
+                  className={`px-2 py-1 rounded ${
+                    difficulty === "easy"
+                      ? "bg-green-100 text-green-700"
+                      : difficulty === "medium"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                </span>
+                <span className="text-gray-500">
+                  {gameMode === "daily" ? "Daily" : "Practice"}
+                </span>
+              </div>
+
               {/* Score & Timer */}
               <div className="flex justify-between items-center">
-                <p className="text-lg font-medium text-gray-700">
-                  Score: {gameData.score}
-                </p>
-                <p className="text-lg font-medium text-gray-700">
-                  Time Left: {gameData.timeLeft}s
-                </p>
+                <p className="text-lg font-medium text-gray-700">Score: {gameData.score}</p>
+                <p className="text-lg font-medium text-gray-700">Time: {gameData.timeLeft}s</p>
               </div>
 
               {/* Definition */}
               <div className="min-h-[3rem] flex items-center justify-center">
                 <p className="text-center font-medium text-gray-700">
-                  {selectedWords[gameData.currentWordIndex]?.definition || "Loading definition..."}
+                  {selectedWords[gameData.currentWordIndex]?.definition || "Loading..."}
                 </p>
               </div>
 
@@ -484,34 +600,27 @@ export default function SpellingGame() {
                 <Button
                   onClick={playAudio}
                   variant="outline"
-                  className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm"
-                  // Disable if audioRef isn't ready or no URL
-                  disabled={!audioRef.current || !selectedWords[gameData.currentWordIndex]?.audio_url}
+                  className="bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
                   <Volume2 className="mr-2 h-5 w-5" /> Play Pronunciation
                 </Button>
               </div>
-              {/* Ensure audio element is always rendered for the ref */}
               <audio ref={audioRef} preload="auto" />
 
               {/* Timer Bar */}
               <div className="relative pt-1">
-                <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
+                <div className="overflow-hidden h-2 flex rounded bg-gray-200">
                   <div
-                    style={{
-                      width: `${(gameData.timeLeft / TOTAL_TIME) * 100}%`,
-                    }}
-                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-linear" // Use linear for smoother timer updates
+                    style={{ width: `${(gameData.timeLeft / TOTAL_TIME) * 100}%` }}
+                    className="bg-blue-500 transition-all duration-500 ease-linear"
                   ></div>
                 </div>
               </div>
 
               {/* User Input Display */}
               <div className="bg-gray-100 p-4 rounded-lg border border-gray-200 shadow-inner">
-                <p className="text-2xl text-center font-mono text-gray-800 min-h-[40px] tracking-widest"> {/* Use monospace and wider tracking */}
-                  {/* Add a blinking cursor effect (optional) */}
+                <p className="text-2xl text-center font-mono text-gray-800 min-h-[40px] tracking-widest">
                   {gameData.userInput || <span className="text-gray-400">Type your answer</span>}
-                   {/* Example Blinking Cursor: <span className="animate-pulse">|</span> */}
                 </p>
               </div>
 
@@ -529,150 +638,156 @@ export default function SpellingGame() {
           {gameData.gameState === "finished" && (
             <div className="text-center space-y-4">
               <p className="text-3xl font-bold text-gray-800">
-                {gameData.correctWordCount > 0
-                  ? "Game Over! Well Done!"
-                  : "Game Over! Better Luck Next Time!"}
+                {gameData.correctWordCount === selectedWords.length
+                  ? "Perfect!"
+                  : gameData.correctWordCount > 0
+                  ? "Well Done!"
+                  : "Keep Practicing!"}
               </p>
 
+              {/* Emoji result */}
+              <div className="text-4xl py-2">
+                {gameData.attempts.map((attempt, i) => {
+                  const correct = selectedWords[i]?.word || "";
+                  const isCorrect = attempt.trim().toLowerCase() === correct.trim().toLowerCase();
+                  return (
+                    <span key={i} className="mx-1">
+                      {isCorrect ? "✅" : "❌"}
+                    </span>
+                  );
+                })}
+              </div>
+
               {/* Results Box */}
-              <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-4">
-                 <h2 className="text-xl font-semibold mb-2">Your Results</h2>
-                <div className="space-y-3">
-                   {/* Only show score breakdown if points were scored */}
-                   {gameData.score > 0 ? (
-                    <>
-                      {gameData.correctWordCount > 0 && (
-                        <div>
-                            <p className="text-sm text-gray-600 mb-1">Correct Words:</p>
-                            <div className="border border-green-200 p-2 rounded bg-green-50">
-                            <code className="text-lg font-mono text-green-600">
-                                {gameData.correctWordCount} × 50 = {gameData.correctWordCount * 50} points
-                            </code>
-                            </div>
-                        </div>
-                      )}
-                       {/* Only show time bonus if it's positive */}
-                      {(gameData.score - gameData.correctWordCount * 50) > 0 && (
-                           <div>
-                            <p className="text-sm text-gray-600 mb-1">Time Bonus:</p>
-                            <div className="border border-blue-200 p-2 rounded bg-blue-50"> {/* Changed color */}
-                                <code className="text-lg font-mono text-blue-600">
-                                {gameData.score - gameData.correctWordCount * 50} points
-                                </code>
-                            </div>
-                            </div>
-                      )}
-                       <div>
-                        <p className="text-sm text-gray-600 mb-1">Total Score:</p>
-                        <div className="border border-indigo-200 p-2 rounded bg-indigo-50"> {/* Changed color */}
-                            <code className="text-xl font-mono text-indigo-600 font-bold"> {/* Made bold */}
-                            {gameData.score} points
-                            </code>
-                        </div>
-                        </div>
-                     </>
-                  ) : (
-                     // Message for zero score
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Total Score:</p>
-                        <div className="border border-red-200 p-2 rounded bg-red-50">
-                            <code className="text-xl font-mono text-red-500">0 points</code>
-                        </div>
-                      </div>
-                  )}
+              <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Score</p>
+                    <p className="text-2xl font-bold text-indigo-600">{gameData.score}</p>
                   </div>
-                </div> {/* End Results Box */}
+                  <div>
+                    <p className="text-sm text-gray-600">Correct</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {gameData.correctWordCount}/{selectedWords.length}
+                    </p>
+                  </div>
+                </div>
 
-                <p className="text-center text-lg font-medium text-gray-700 mt-4">
-                     Come back tomorrow for a new challenge!
-                </p>
+                {displayStreak() > 1 && (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <Flame className="h-5 w-5 text-orange-500" />
+                    <span className="font-bold text-orange-600">{displayStreak()} day streak!</span>
+                  </div>
+                )}
+              </div>
 
-                {/* Button to show the answers modal */}
+              {gameMode === "daily" && (
+                <p className="text-gray-600">Come back tomorrow for a new challenge!</p>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
                 <Button
-                   onClick={() => setShowAnswersModal(true)}
-                   className="w-full bg-gray-500 hover:bg-gray-600 text-white transition-colors mt-4" // Changed color
-                   size="lg"
-                 >
-                   Review Your Answers
-                 </Button>
+                  onClick={() => setShowAnswersModal(true)}
+                  className="w-full bg-gray-500 hover:bg-gray-600 text-white"
+                  size="lg"
+                >
+                  Review Answers
+                </Button>
 
-                {/* Keep us ad-free */}
                 <Button
-                    onClick={() => window.open("https://buy.stripe.com/5kAg2qb6R5gjfKw28f", "_blank")}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors mt-2" // Reduced margin
+                  onClick={handleShare}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  size="lg"
+                >
+                  <Share2 className="mr-2 h-5 w-5" /> Share Results
+                </Button>
+
+                {gameMode === "practice" && (
+                  <Button
+                    onClick={() => {
+                      setStateToInitial();
+                      setShowModeSelect(true);
+                    }}
+                    variant="outline"
+                    className="w-full"
                     size="lg"
-                 >
-                   Support Spelling B- (Ad-Free)
-                 </Button>
+                  >
+                    <RotateCcw className="mr-2 h-5 w-5" /> Play Again
+                  </Button>
+                )}
 
-                {/* Share Results */}
-                 <Button
-                   onClick={shareResults}
-                   className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors mt-2" // Reduced margin
-                   size="lg"
-                   disabled={!navigator.clipboard && (!navigator.share || !navigator.canShare)} // Disable if no sharing mechanism
-                 >
-                   <Share2 className="mr-2 h-5 w-5" /> Share Your Score
-                 </Button>
+                <Button
+                  onClick={backToModeSelect}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  Back to Menu
+                </Button>
+
+                <Button
+                  onClick={() => window.open("https://buy.stripe.com/5kAg2qb6R5gjfKw28f", "_blank")}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                  size="lg"
+                >
+                  <Trophy className="mr-2 h-5 w-5" /> Support Spelling B-
+                </Button>
+              </div>
             </div>
-           )}
+          )}
         </CardContent>
       </Card>
 
       {/* ----- Answers Modal ----- */}
       {showAnswersModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"> {/* Added padding */}
-          <div className="bg-white rounded-lg p-6 w-full max-w-md relative shadow-xl"> {/* Adjusted max-width */}
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md relative shadow-xl">
             <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-200 transition-colors" // Improved styling
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-200"
               onClick={() => setShowAnswersModal(false)}
-              aria-label="Close answers modal" // Accessibility
+              aria-label="Close"
             >
               <X className="h-5 w-5" />
             </button>
-            <h2 className="text-2xl font-bold text-center mb-5"> {/* Increased margin */}
-              Your Attempts vs. Correct Answers
-            </h2>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2"> {/* Added max height and scroll */}
+            <h2 className="text-2xl font-bold text-center mb-5">Your Answers</h2>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {selectedWords.map((word, i) => {
-                 // Ensure attempt exists, default to empty string if not
-                const attempt = gameData.attempts[i] ?? ""; // Use nullish coalescing
-                const isCorrect =
-                  attempt.trim().toLowerCase() ===
-                  word.word.trim().toLowerCase();
+                const attempt = gameData.attempts[i] ?? "";
+                const isCorrect = attempt.trim().toLowerCase() === word.word.trim().toLowerCase();
                 return (
-                  <div key={word.id} className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 items-stretch"> {/* Adjusted layout */}
-                      {/* Your Attempt */}
-                      <div className={`flex-1 p-3 rounded border ${
+                  <div key={word.id} className="space-y-2">
+                    <p className="text-sm text-gray-600">{word.definition}</p>
+                    <div className="flex gap-2">
+                      <div
+                        className={`flex-1 p-3 rounded border ${
                           isCorrect ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"
-                      }`}>
-                         <p className="text-xs text-gray-500 mb-1">Your Input:</p>
-                          <p className={`text-lg font-mono break-words ${ // Allow long words to wrap
-                              isCorrect ? "text-green-700" : "text-red-700"
-                          }`}>
-                              {attempt || <span className="italic text-gray-400">(no attempt)</span>}
-                          </p>
+                        }`}
+                      >
+                        <p className="text-xs text-gray-500 mb-1">You typed:</p>
+                        <p
+                          className={`text-lg font-mono ${
+                            isCorrect ? "text-green-700" : "text-red-700"
+                          }`}
+                        >
+                          {attempt || <span className="italic text-gray-400">(no answer)</span>}
+                        </p>
                       </div>
-                       {/* Correct Answer */}
-                      {!isCorrect && ( // Only show correct answer if attempt was wrong
-                         <div className="flex-1 p-3 rounded border border-gray-300 bg-gray-50">
-                           <p className="text-xs text-gray-500 mb-1">Correct Spelling:</p>
-                           <p className="text-lg font-mono break-words text-gray-700">
-                             {word.word}
-                           </p>
-                         </div>
+                      {!isCorrect && (
+                        <div className="flex-1 p-3 rounded border border-gray-300 bg-gray-50">
+                          <p className="text-xs text-gray-500 mb-1">Correct:</p>
+                          <p className="text-lg font-mono text-gray-700">{word.word}</p>
+                        </div>
                       )}
+                    </div>
                   </div>
                 );
               })}
-               {/* Handle case where there are no selected words (shouldn't happen if modal shown) */}
-               {selectedWords.length === 0 && (
-                   <p className="text-center text-gray-500">No words to review.</p>
-               )}
             </div>
-            {/* Optional: Add a close button at the bottom */}
             <div className="text-center mt-4">
-                <Button variant="outline" onClick={() => setShowAnswersModal(false)}>Close</Button>
+              <Button variant="outline" onClick={() => setShowAnswersModal(false)}>
+                Close
+              </Button>
             </div>
           </div>
         </div>

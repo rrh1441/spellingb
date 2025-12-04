@@ -10,7 +10,25 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Spelling B-",
-  description: "Test your spelling skills!",
+  description: "Daily spelling game - test your spelling skills without autocorrect!",
+  manifest: "/manifest.json",
+  themeColor: "#3b82f6",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Spelling B-",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  openGraph: {
+    title: "Spelling B-",
+    description: "Daily spelling game - test your spelling skills without autocorrect!",
+    type: "website",
+  },
 }
 
 export default function RootLayout({

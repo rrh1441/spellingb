@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-words": "npx ts-node --esm scripts/generate-word-data.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",
@@ -37,6 +38,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "5.9.3"
   }
 }
