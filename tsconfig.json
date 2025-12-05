@@ -39,6 +39,6 @@
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   
   /* Specify the files or directories to exclude from the project */
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "scripts"]
 }
 
