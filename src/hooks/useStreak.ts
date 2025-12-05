@@ -20,14 +20,6 @@ const initialStreakData: StreakData = {
   totalScore: 0,
 };
 
-// Calculate the difference in days between two dates (YYYY-MM-DD format)
-function daysBetween(date1: string, date2: string): number {
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-  const diffTime = Math.abs(d2.getTime() - d1.getTime());
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-}
-
 // Get yesterday's date in YYYY-MM-DD format (LA timezone)
 function getYesterdayDate(): string {
   const today = new Date(getTodayDate());

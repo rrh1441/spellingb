@@ -9,7 +9,7 @@ import { toast } from "@/components/ui/use-toast";
 import supabase from "@/lib/supabase";
 import useIsIpad from "@/hooks/useIsIpad";
 import { getTodayDate, getLaMidnightUtc } from "@/lib/utils";
-import { useGameState, PersistedGameState } from "@/hooks/useGameState";
+import { useGameState } from "@/hooks/useGameState";
 import { useStreak } from "@/hooks/useStreak";
 import { Keyboard } from "@/components/Keyboard";
 import { shareResults, getGameDayNumber, ShareData } from "@/lib/share";
