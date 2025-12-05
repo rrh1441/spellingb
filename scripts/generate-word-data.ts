@@ -30,6 +30,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const TTS_VOICE = 'onyx';
 const TTS_MODEL = 'tts-1';
+const TTS_SPEED = 0.75; // Slower for clearer pronunciation
 const AUDIO_FORMAT = 'mp3';
 const STORAGE_BUCKET = 'audio';
 
@@ -111,6 +112,7 @@ async function generateAudio(word: string): Promise<Buffer | null> {
         input: word,
         voice: TTS_VOICE,
         response_format: AUDIO_FORMAT,
+        speed: TTS_SPEED,
       }),
     });
 
@@ -175,29 +177,48 @@ async function wordExists(
   return !!(data && data.length > 0);
 }
 
-// Insert word into database
-async function insertWord(
+// Insert or update word in database
+async function saveWord(
   supabase: ReturnType<typeof createClient>,
-  entry: WordEntry
+  entry: WordEntry,
+  exists: boolean
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('audio_files')
-      .insert({
-        word: entry.word,
-        definition: entry.definition,
-        difficulty: entry.difficulty,
-        audio_url: entry.audio_url,
-      });
+    if (exists) {
+      // Update existing record
+      const { error } = await supabase
+        .from('audio_files')
+        .update({
+          definition: entry.definition,
+          difficulty: entry.difficulty,
+          audio_url: entry.audio_url,
+        })
+        .eq('word', entry.word);
 
-    if (error) {
-      console.error(`  ❌ Database error for "${entry.word}":`, error);
-      return false;
+      if (error) {
+        console.error(`  ❌ Database error updating "${entry.word}":`, error);
+        return false;
+      }
+    } else {
+      // Insert new record
+      const { error } = await supabase
+        .from('audio_files')
+        .insert({
+          word: entry.word,
+          definition: entry.definition,
+          difficulty: entry.difficulty,
+          audio_url: entry.audio_url,
+        });
+
+      if (error) {
+        console.error(`  ❌ Database error inserting "${entry.word}":`, error);
+        return false;
+      }
     }
 
     return true;
   } catch (error) {
-    console.error(`  ❌ Error inserting "${entry.word}":`, error);
+    console.error(`  ❌ Error saving "${entry.word}":`, error);
     return false;
   }
 }
@@ -244,17 +265,28 @@ async function processWords() {
 
       console.log(`[${i + 1}/${words.length}] Processing "${word}"...`);
 
-      // Step 0: Check if word already exists
+      // Step 0: Check if word already exists (skip definition fetch if so)
       const exists = await wordExists(supabase, word);
+      let definition: string | null = null;
+
       if (exists) {
-        console.log(`  ⏭️  Skipping "${word}" - already exists in database\n`);
-        totalSuccess++; // Count as success since it's already there
-        continue;
+        // Get existing definition from database
+        const { data } = await supabase
+          .from('audio_files')
+          .select('definition')
+          .eq('word', word)
+          .limit(1);
+        definition = data?.[0]?.definition || null;
+        if (definition) {
+          console.log(`  ✅ Using existing definition`);
+        }
       }
 
-      // Step 1: Fetch definition
-      await sleep(DICTIONARY_DELAY_MS);
-      const definition = await fetchDefinition(word);
+      // Step 1: Fetch definition if we don't have one
+      if (!definition) {
+        await sleep(DICTIONARY_DELAY_MS);
+        definition = await fetchDefinition(word);
+      }
 
       if (!definition) {
         console.log(`  ⏭️  Skipping "${word}" - no definition found`);
@@ -292,7 +324,7 @@ async function processWords() {
         audio_url: audioUrl,
       };
 
-      const success = await insertWord(supabase, entry);
+      const success = await saveWord(supabase, entry, exists);
 
       if (success) {
         console.log(`  ✅ Saved to database\n`);

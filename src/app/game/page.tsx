@@ -55,6 +55,14 @@ const randomShuffle = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+// Mask the word in the definition to avoid giving away the answer
+const maskWordInDefinition = (definition: string, word: string): string => {
+  if (!definition || !word) return definition;
+  // Create a regex that matches the word (case insensitive, whole word)
+  const regex = new RegExp(`\\b${word}\\b`, 'gi');
+  return definition.replace(regex, '_____');
+};
+
 export default function SpellingGame() {
   const TOTAL_TIME = 60;
   const WORDS_PER_GAME = 3;
@@ -302,10 +310,13 @@ export default function SpellingGame() {
       return;
     }
 
-    // For practice mode, get new random words
+    // Get the words to use for this game
+    let wordsForGame: Word[];
     if (gameMode === "practice") {
-      const practiceWords = getPracticeWords(allWords, difficulty);
-      setSelectedWords(practiceWords);
+      wordsForGame = getPracticeWords(allWords, difficulty);
+      setSelectedWords(wordsForGame);
+    } else {
+      wordsForGame = selectedWords;
     }
 
     setShowModeSelect(false);
@@ -315,10 +326,10 @@ export default function SpellingGame() {
       gameState: "playing",
     }));
 
+    // Play audio for first word after a short delay
     setTimeout(() => {
-      const words = gameMode === "practice" ? getPracticeWords(allWords, difficulty) : selectedWords;
-      if (audioRef.current && words[0]) {
-        audioRef.current.src = words[0].audio_url;
+      if (audioRef.current && wordsForGame[0]) {
+        audioRef.current.src = wordsForGame[0].audio_url;
         audioRef.current.load();
         audioRef.current.play().catch((error) => console.error("Failed to play audio:", error));
       }
@@ -461,13 +472,27 @@ export default function SpellingGame() {
           </div>
 
           {/* ----- MODE SELECTION ----- */}
-          {showModeSelect && gameData.gameState === "ready" && (
+          {showModeSelect && (gameData.gameState === "ready" || gameData.gameState === "finished") && (
             <div className="space-y-6">
-              <p className="text-center text-gray-600">
-                Test your spelling skills on everyday words.
-                <br />
-                Autocorrect won&apos;t save you!
-              </p>
+              {/* Show today's score if already played */}
+              {gameData.gameState === "finished" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-blue-600 mb-1">Today&apos;s Score</p>
+                  <p className="text-3xl font-bold text-blue-700">{gameData.score}</p>
+                  <p className="text-sm text-blue-600 mt-1">
+                    {gameData.correctWordCount}/{selectedWords.length} correct
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">Come back tomorrow for a new challenge!</p>
+                </div>
+              )}
+
+              {gameData.gameState === "ready" && (
+                <p className="text-center text-gray-600">
+                  Test your spelling skills on everyday words.
+                  <br />
+                  Autocorrect won&apos;t save you!
+                </p>
+              )}
 
               {/* Difficulty Selection */}
               <div className="space-y-2">
@@ -496,18 +521,26 @@ export default function SpellingGame() {
 
               {/* Game Mode Selection */}
               <div className="space-y-3">
-                <Button
-                  onClick={() => {
-                    setGameMode("daily");
-                    startGame();
-                  }}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
-                  size="lg"
-                  disabled={allWords.length === 0}
-                >
-                  <Play className="mr-2 h-5 w-5" />
-                  Daily Challenge
-                </Button>
+                {gameData.gameState === "ready" && (
+                  <Button
+                    onClick={() => {
+                      setGameMode("daily");
+                      startGame();
+                    }}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                    size="lg"
+                    disabled={allWords.length === 0}
+                  >
+                    <Play className="mr-2 h-5 w-5" />
+                    Daily Challenge
+                  </Button>
+                )}
+
+                {gameData.gameState === "finished" && (
+                  <div className="text-center text-sm text-gray-500 py-2">
+                    Daily challenge completed for today
+                  </div>
+                )}
 
                 <Button
                   onClick={() => {
@@ -580,7 +613,12 @@ export default function SpellingGame() {
               {/* Definition */}
               <div className="min-h-[3rem] flex items-center justify-center">
                 <p className="text-center font-medium text-gray-700">
-                  {selectedWords[gameData.currentWordIndex]?.definition || "Loading..."}
+                  {selectedWords[gameData.currentWordIndex]
+                    ? maskWordInDefinition(
+                        selectedWords[gameData.currentWordIndex].definition,
+                        selectedWords[gameData.currentWordIndex].word
+                      )
+                    : "Loading..."}
                 </p>
               </div>
 
