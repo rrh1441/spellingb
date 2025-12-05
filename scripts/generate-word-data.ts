@@ -18,7 +18,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -158,21 +162,32 @@ async function uploadAudio(
   }
 }
 
-// Insert or update word in database
-async function upsertWord(
+// Check if word already exists
+async function wordExists(
+  supabase: ReturnType<typeof createClient>,
+  word: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('audio_files')
+    .select('id')
+    .eq('word', word)
+    .limit(1);
+  return data && data.length > 0;
+}
+
+// Insert word into database
+async function insertWord(
   supabase: ReturnType<typeof createClient>,
   entry: WordEntry
 ): Promise<boolean> {
   try {
     const { error } = await supabase
-      .from('words')
-      .upsert({
+      .from('audio_files')
+      .insert({
         word: entry.word,
         definition: entry.definition,
         difficulty: entry.difficulty,
         audio_url: entry.audio_url,
-      }, {
-        onConflict: 'word',
       });
 
     if (error) {
@@ -229,6 +244,14 @@ async function processWords() {
 
       console.log(`[${i + 1}/${words.length}] Processing "${word}"...`);
 
+      // Step 0: Check if word already exists
+      const exists = await wordExists(supabase, word);
+      if (exists) {
+        console.log(`  ⏭️  Skipping "${word}" - already exists in database\n`);
+        totalSuccess++; // Count as success since it's already there
+        continue;
+      }
+
       // Step 1: Fetch definition
       await sleep(DICTIONARY_DELAY_MS);
       const definition = await fetchDefinition(word);
@@ -269,7 +292,7 @@ async function processWords() {
         audio_url: audioUrl,
       };
 
-      const success = await upsertWord(supabase, entry);
+      const success = await insertWord(supabase, entry);
 
       if (success) {
         console.log(`  ✅ Saved to database\n`);

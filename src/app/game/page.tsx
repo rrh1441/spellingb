@@ -151,21 +151,10 @@ export default function SpellingGame() {
       }
 
       try {
-        // Try new 'words' table first, fall back to 'audio_files'
-        let { data, error } = await supabase
-          .from("words")
+        const { data, error } = await supabase
+          .from("audio_files")
           .select("*")
           .order("id", { ascending: true });
-
-        // If 'words' table doesn't exist, try 'audio_files'
-        if (error && error.code === "42P01") {
-          const fallback = await supabase
-            .from("audio_files")
-            .select("*")
-            .order("id", { ascending: true });
-          data = fallback.data;
-          error = fallback.error;
-        }
 
         if (error) {
           console.error("Error fetching words:", error);
