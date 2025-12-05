@@ -172,7 +172,7 @@ async function wordExists(
     .select('id')
     .eq('word', word)
     .limit(1);
-  return data && data.length > 0;
+  return !!(data && data.length > 0);
 }
 
 // Insert word into database
